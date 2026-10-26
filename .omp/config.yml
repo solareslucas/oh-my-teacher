@@ -1,0 +1,12 @@
+# Project-only OMP settings. Provider/model selection remains the user's choice.
+skills:
+  enabled: true
+  enableSkillCommands: true
+memory:
+  backend: off
+autolearn:
+  enabled: false
+autoResume: false
+includeWorkspaceTree: false
+tools:
+  approvalMode: write
