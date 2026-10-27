@@ -96,6 +96,37 @@ Exercised with OMP 18.12.6, model `claude-opus-5-5` (from the JSON events), `omp
 
 Limits: no run with the previous wording was made for comparison, so these runs show compliance, not that the new paragraph caused it. Homework (section B) composition and Typst starter files under the rule were not exercised.
 
+## Session-aware fast turns (added 2026-10-26)
+
+Exercised with **OMP 18.13.0**, model `gpt-6.1-sol` (JSON message metadata). A temporary Python standard-library driver copied only public configuration, guides, and templates into disposable workspaces outside this checkout; it did not copy or read real learner records. Fictional profiles recorded ongoing update consent. Saved-mode history used a disposable `--session-dir`. The driver and fixtures are not repository dependencies.
+
+Native API evidence was opened in the version-matched upstream [extension-loading documentation](https://github.com/can1357/oh-my-pi/blob/v18.13.0/docs/extension-loading.md), [extension types](https://github.com/can1357/oh-my-pi/blob/v18.13.0/packages/coding-agent/src/extensibility/extensions/types.ts), and [session manager](https://github.com/can1357/oh-my-pi/blob/v18.13.0/packages/coding-agent/src/session/session-manager.ts). No installed documentation tree was located. `before_agent_start` supplies a `string[]` system prompt; `ctx.sessionManager.getSessionFile()` is undefined for an in-memory session and allocated for persistence-enabled mode. An allocated path does **not** prove disk materialization.
+
+Isolated consented scenarios used:
+
+```sh
+omp -p --mode json --no-title --no-extensions \
+  --extension .omp/extensions/session-mode.js --no-lsp \
+  --tools read,write,edit --approval-mode yolo --max-time 240 \
+  --session-dir /tmp/<disposable-history> [--no-session] \
+  '/teach-profile select <fictional-alias>' '<attempt 1>' '<attempt 2>' '<pause/save>'
+```
+
+Brackets/placeholders above describe alternatives, not literal shell arguments. `yolo` was a headless **verification-only override**, not a project setting change. Two additional session-only lesson checks exercised ordinary extension discovery and `--no-extensions` without an explicit extension.
+
+| Scenario | Observed outcome |
+| --- | --- |
+| Saved OMP session, selected consented profile, two micro-attempts then pause/save | Profile selection did not start teaching. First practice turn read the skill only (one tool call); second practice turn made **zero tool calls**. Neither wrote records. Pause/save reread progress and merged both actual attempts while preserving the fixture's E000 entry. Profile remained unchanged; no empty review/assignment files created. |
+| Same prompts with `--no-session` and explicit extension | Each practice turn read current progress and successfully edited it before yielding; profile remained unchanged. Responses gave brief feedback and one task, without per-turn administrative summaries. Pause recorded the paused state; unanswered tasks stayed unobserved, not completed. |
+| Native project extension discovery, `--no-session`, no selection/consent | Reported `ephemeral`, read the teaching skill, gave a correct elementary fraction explanation and one question. No learner records read and no `.teacher/` directory created. |
+| Extension discovery disabled with no explicit extension | Reported mode `unknown` rather than guessing from the launch examples; taught the fraction lesson without learner reads or writes. |
+| Explicit on-request-only preference in an ephemeral session | Warned that deferred changes could be lost, honored the preference with no practice-turn writes (one initial skill read, then zero tool calls), and merged both attempts only on the explicit pause/save request. |
+| Native project extension discovery in a normal saved session, no selection/consent | Reported `persistence-enabled`, taught one fraction chunk and question, and created no learner directory. |
+
+All six CLI processes exited 0; their JSON events showed no tool execution errors. Resulting fictional files and tool arguments were inspected. A direct Bun invocation also exercised extension modes `ephemeral`, `persistence-enabled` (using a nonexistent allocated path), and `unknown` (missing accessor), confirming base-prompt preservation and no session-path disclosure. The final two scenarios included the final sticky fast-turn rule.
+
+These checks establish observed tool-call behavior, not a measured latency improvement or learning-outcome equivalence. Provider latency, inference time, approvals, source lookups, and model instruction following still vary. No abrupt-exit recovery, guaranteed shutdown save, compaction durability, concurrent-editor race, or interactive TUI benchmark was tested. Necessary reasoning/source verification remains required. A read-only review found no must-fix defects; it was not independent runtime verification.
+
 ## What this does not establish
 
 - These are observed smoke scenarios on one model, not empirical validation of learning outcomes, a benchmark, or proof of reliable behavior on every model/language.

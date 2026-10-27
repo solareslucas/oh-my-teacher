@@ -7,6 +7,7 @@ This is a blank template, not a learner record. Copy only after explicit persist
 - Pseudonymous alias:
 - Persistence consent: what the learner explicitly authorized, date, and any limits
 - Privacy explanation acknowledged: local records are not the only possible copies; OMP history and provider retention are separate
+- Save cadence preference, only if explicitly chosen: checkpoints / each meaningful turn / on request; otherwise use runtime-mode default
 - Last learner-confirmed correction/date:
 
 ## Communication and access

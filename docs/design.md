@@ -8,9 +8,10 @@
 - `.omp/skills/*/SKILL.md`: on-demand teaching, language, and research procedures. They do not make independent API calls.
 - `.omp/commands/teach-*.md`: native Markdown command templates with `$ARGUMENTS`; prefixed names avoid built-in collisions. They route to skills, not executable shell scripts.
 - `.omp/config.yml`: project-local skill commands, disabled memory/auto-learning/auto-resume/workspace tree, write approval mode; no chosen model/provider.
+- `.omp/extensions/session-mode.js`: side-effect-free native runtime detection via `ctx.sessionManager.getSessionFile()`. Adds only an ephemeral/persistence-enabled/unknown notice before a user turn; never reads learner records, exposes the session path, or writes anything.
 - `templates/`: blank record formats, not auto-loaded learner data. Optional private records live in ignored `.teacher/`.
 
-No package manager, service, extension, hook, custom tool, SDK, or database is needed. Native hooks load runtime extension modules in current OMP; adding one would require a concrete event-level need and still could not verify truth from output text. The SDK is reserved for a missing native capability and requires the user's prior agreement.
+No package manager, service, custom tool, SDK application, or database is needed. One native extension supplies the concrete runtime signal unavailable in static prompt files; it neither saves records itself nor verifies output truth. `--no-extensions` disables auto-discovery; explicitly pass `--extension .omp/extensions/session-mode.js` to retain detection in isolated runs. Without a notice the teacher uses checkpoint cadence and does not guess the mode. The SDK remains reserved for a missing native capability and requires the user's prior agreement.
 
 ## Adaptation is a feedback loop
 

@@ -54,6 +54,16 @@ Learning works without files. If you want continuity between sessions:
 3. In another session, explicitly resume that alias: `/teach-resume learner-a` (or only select it with `/teach-profile select learner-a`). Nothing auto-selects a learner.
 4. Use `/teach-profile correct ...` or `/teach-profile forget ...` to change or remove selected information. File deletion needs exact-scope approval; it does not erase provider logs, OMP history, or backups.
 
+### Faster teaching turns
+
+Normal saved OMP sessions keep a compact working ledger in the conversation and batch authorized learner-file updates at checkpoints (end of a lesson segment, homework handoff, explicit save/report, pause/end, or profile switch). Micro-exercises do not trigger routine file operations. Loaded instructions and selected records are reused; files are refreshed before actual writes. This reduces administrative tool calls, not reasoning or necessary source checks.
+
+In `--no-session` mode, an explicitly selected profile with ongoing saving consent receives meaningful updates each turn, because the conversation itself will not be saved by OMP. Only changed records are touched: a new explanation alone does not justify rewriting progress or the profile. No profile selection or consent means **no learner-file saves in either mode**.
+
+You can request “save at checkpoints,” “save each meaningful turn,” or “save only when I ask.” Pending changes are not yet in learner files and may be lost on an abrupt exit or context loss; checkpoints are not a background autosave or shutdown guarantee. Conversation history is not a substitute for a flushed learner record when starting a fresh session.
+
+Mode detection uses the project's native `.omp/extensions/session-mode.js`; it exposes only whether OMP persistence is enabled, not the session filename or learner data. If you disable extension discovery, add `--extension .omp/extensions/session-mode.js` to keep detection. Without a runtime notice, mode is unknown and checkpoint cadence applies. Persistence-enabled does not guarantee that a transcript has reached disk.
+
 `.teacher/` is Git-ignored, not encrypted or access-controlled. For young children, use trusted-adult supervision and session-only mode until an adult is involved in persistence. For different people, use fresh OMP sessions; for privacy isolation, separate OS accounts/checkouts. Switching a profile cannot remove the previous conversation from context.
 
 The project disables OMP memory, auto-learning, auto-resume, and workspace-tree inclusion. User extensions, MCP services, CLI overrides, provider retention, and operating-system backups remain outside this configuration's control. Review your integrations. Review dates are manual suggestions; no notification service runs in the background.
@@ -73,4 +83,4 @@ Research distinguishes actual observations from proposals, sourced claims from i
 
 Native configuration is in `.omp/`; blank record formats are in `templates/`. Restart OMP after editing prompts or skills. Launch from the root: starting in a subdirectory can miss commands/settings or select a nearer `.omp/` context. Don't pass `--no-skills`, `--no-rules`, or a replacement system prompt if you want this configuration intact.
 
-Initial compatibility target: OMP 18.12.6. No hooks are necessary for the current workflows. The SDK is a last resort and will not be introduced without first explaining why native configuration is insufficient and asking you.
+Initial compatibility target: OMP 18.12.6. The native session-mode extension is optional for teaching but needed for automatic mode-aware cadence. The SDK is a last resort and will not be introduced without first explaining why native configuration is insufficient and asking you.

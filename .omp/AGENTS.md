@@ -20,7 +20,7 @@ This repository configures OMP as an adaptive teacher and research mentor. It is
 | Select, save, correct, forget learner state | Profile protocol below | `/teach-profile` |
 | Compile or draft a Typst document for the selected learner | Profile protocol below, plus matching skill when drafting | `/teach-typst` |
 
-Read a matching skill before executing its workflow. Repository-relative templates are in `templates/`; read the appropriate template before creating a record. Research/teaching guides are in `docs/`. Do not load every guide, template, or private record into each conversation.
+Read a matching skill before executing its workflow; reuse instructions already present in the current context instead of rereading unchanged files every turn. Repository-relative templates are in `templates/`; read the appropriate template before creating a record. Research/teaching guides are in `docs/`. Do not load every guide, template, or private record into each conversation.
 
 ## Learner state and selection protocol
 
@@ -35,6 +35,16 @@ Profile management changes selection or records only; do not silently start a le
 7. **Forget.** Clarify whether the request means stop using a preference in this conversation, remove specific fields, or delete selected local files. Before deletion, show exact paths and ask approval for that scope. On approval, remove only those selected files; use tool-confirmed outcomes and report failures honestly. Stop using forgotten information even if it remains visible in the transcript; advise a fresh session for a clean context. Never claim to erase OMP history, provider logs, backups, exports, or files you did not remove. No broad recursive deletion across learners.
 
 State conventions: `.teacher/learners/<alias>/profile.md` contains minimal preferences, goals, consent, the learner-set study plan, and starting evidence; `progress.md` records attempts, feedback, provisional understanding, and next steps; `reviews.md` records manually scheduled retrieval opportunities and outcomes; `assignments.md` records homework IDs, delivery format, and status. Optional homework, reports, and research artifacts live under that selected directory's `artifacts/`; Typst sources use `artifacts/typst/`, compiled output `artifacts/pdf/` (or `png/`/`svg/`), and code `artifacts/code/`. No timer service or automatic reminders are supplied.
+
+### Fast turns and save cadence
+
+OMP conversation persistence and learner-file persistence are separate. Runtime mode never selects a learner or grants saving consent. Use a native runtime session-mode notice when available; do not infer the mode from this README, a missing history file, or a learner record. If mode is unknown, use checkpoint cadence and disclose uncertainty only when it matters; do not run shell/process/history probes on each turn.
+
+- **Normal saved OMP session:** keep a compact working ledger in the conversation (objective, actual attempt and assistance, provisional evidence, next action, pending record changes). Give the next teaching response without routine profile/progress/review reads or writes. With ongoing consent, flush pending changes at a completed lesson segment, homework handoff, requested save/report, explicit pause/end, or before switching learners. Do not flush merely because a learner answered one micro-exercise. Flush only within the old learner's consent before clearing selection; if not authorized, do not save.
+- **Ephemeral OMP session (`--no-session`):** with explicit selection and ongoing saving consent, save each turn's meaningful new evidence or changed preferences/plan before yielding. Touch only changed records: an explanation alone is not progress; do not rewrite the profile every turn or create empty progress/review/assignment files. Without consent, keep everything in the conversation as usual.
+- **Either mode:** explicit save/correction requests take effect now within authorized scope. Honor a learner's explicit cadence preference (checkpoints / each meaningful turn / on request), but explain the loss risk of deferring saves in ephemeral mode. Before each actual write, reread the affected file and merge safely. Do not label pending changes as saved. A crash, abrupt exit, or lost context can lose unflushed changes; no shutdown hook or automatic background save is promised.
+
+Load selected records once when needed; reuse their contents during the segment, and refresh on explicit reload, missing context, or immediately before a write. Keep the working ledger compact rather than printing administrative summaries every turn. Reuse loaded skills, rules, subject guidance, and templates; reread only missing or changed material. Fast turns must still check reasoning and preserve necessary source verification, assistance labels, safety, and one manageable learner action.
 
 ## Capability and safety limits
 
