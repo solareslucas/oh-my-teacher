@@ -15,7 +15,7 @@ mkdirSync(dir, { recursive: true });
 writeFileSync(join(dir, "profile.md"), "fictional benchmark profile\n");
 
 const s = { optional: () => s, describe: () => s };
-const z = { object: o => o, enum: () => s, string: () => s, boolean: () => s, number: () => s };
+const z = { object: o => o, enum: () => s, string: () => s, boolean: () => s, number: () => s, array: () => s };
 const handlers = {};
 let tool;
 let tick;
@@ -39,6 +39,12 @@ for (let i = 0; i < 300; i++) {
 state.calibration = Array.from({ length: 200 }, () => ({ subject: "MAT000", estimateMin: 20, actualMin: 25 }));
 writeFileSync(file, JSON.stringify(state, null, 2));
 await call({ action: "task_start", title: "bench", estimateMinutes: 30 });
+// A cycle-sized weekly plan: 5 courses x 4 topics x 32 h, Mon–Sat slots.
+await call({
+  action: "plan_week", name: "bench cycle",
+  slots: ["mon", "tue", "wed", "thu", "fri"].map(day => ({ day, start: "19:00", durationMinutes: 120 })).concat([{ day: "sat", start: "09:00", durationMinutes: 180 }]),
+  items: ["A", "B", "C", "D", "E"].flatMap(c => [1, 2, 3, 4].map(t => ({ subject: c, topic: `${c}-T${t}`, hours: 32 }))),
+});
 
 function bench(label, fn, n) {
   for (let i = 0; i < 50; i++) fn();
@@ -53,6 +59,9 @@ const size = readFileSync(file).length;
 console.log(`extension: ${extPath}`);
 console.log(`schedule.json: ${(size / 1024).toFixed(0)} KiB, ${state.blocks.length} blocks`);
 const tickUs = bench("per-minute tick", () => tick(), 2000);
+const { materialize } = mod;
+const plan = JSON.parse(readFileSync(file, "utf8")).plans[0];
+bench("full plan projection (640 h)", () => materialize(plan, Date.now()), 200);
 let injected = "";
 const turnUs = bench("per-turn injection (before_agent_start)", () => {
   const r = handlers.before_agent_start({ systemPrompt: ["base"], reason: "prompt" }, ctx);

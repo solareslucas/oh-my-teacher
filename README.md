@@ -72,6 +72,14 @@ Mode detection uses the project's native `.omp/extensions/session-mode.js`; it e
 - `plan` a block (“MAT000 for 2 hours, now” or “at 18:00”), `begin` a planned block, `extend`, `end`, `cancel`, `status`, `list`.
 - Before each lesson segment (tasks are 15+ minute segments, not single exercises) the teacher calls `task_start`, or `task_next` to end one segment and start the next, with an estimate. The tool multiplies it by a calibration factor, the median of that learner's past actual/estimate ratios (same subject once three completed tasks exist, otherwise all subjects; clamped 0.5–3), and reports whether the task fits the remaining time. A task that does not fit, or leaves under 10 minutes, is the **last task**; the teacher shrinks its scope rather than overrunning. `task_end` records actual minutes, so estimates adapt over time.
 - While the session is open, a check runs every minute and notifies at 15 and 5 minutes left, when a task passes its estimate or will spill past the block end, when the block ends, and when a planned block is due. The model receives the notice before its next step.
+- **Weekly plans** (`plan_week`, `plan_view`, `plan_item`, `plan_status`) cover Monday–Sunday with recurring slots, for example “weekdays 19:00 for 2 h, Saturday 09:00 for 3 h, chemistry Tuesday/Thursday”. They run until a date (`until`) or until every topic's hour budget is done. Topics are queued in study order with hour budgets (taken from the learner's plan, labeled as estimates).
+  - Grouping: a slot's subject is a preference (or exclusive with `strict`), and otherwise takes the next topic. `days` restricts a topic to certain days, and `after` makes prerequisites go first. Short topics share a slot.
+  - Projection and adaptation: the calendar and per-course finish dates are projected from now and from minutes actually studied, so a missed or short session moves the dates. With `until`, the tool reports hours that do not fit and the extra minutes per week needed.
+  - Each day: the clock lists that day's session and topics, notifies when it is due, and `begin` with the plan starts it (early or late). Ending the block credits the studied minutes to those topics.
+
+  ```
+  /teach-schedule learner-a weekly plan for cycle 1: Mon–Fri 19:00 for 2 h, Saturday 09:00 for 3 h, until done; chemistry Tue/Thu
+  ```
 
 Without an alias the schedule lives only in memory for this session. With an explicitly selected alias, `persist: true`, and consent covering the file, it is stored in `.teacher/learners/<alias>/schedule.json`. Checks need a running OMP session: nothing notifies you when OMP is closed, and time on task is planning data, not evidence of learning. With `--no-extensions`, add `--extension .omp/extensions/study-clock.js`. To measure its overhead against a run without it, see [`evals/study-clock/`](evals/study-clock/README.md).
 

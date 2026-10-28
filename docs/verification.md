@@ -206,3 +206,29 @@ Reading: after the change, an active block adds no tool calls or time talk to or
 - Apart from the opt-in `evals/study-clock/` overhead eval (real model calls, run manually), no permanent source-text/wiring tests or application build were added: this is a declarative OMP workspace, and runtime command/skill behavior was exercised directly.
 
 For later changes, rerun relevant fictional scenarios with `--no-session`; use only a unique disposable alias for persistence checks, inspect actual tool outcomes, and remove those records afterward. Update this file with observations rather than treating these results as permanent guarantees.
+
+## Weekly study plans (added 2026-10-28)
+
+Exercised with OMP 18.13.2 and `anthropic/claude-opus-5-5`.
+
+- `node evals/study-clock/plan-check.mjs` passed 10 deterministic checks:
+  - every budgeted minute is scheduled;
+  - prerequisites go first;
+  - preferred-subject slots fall back to the queue, while strict slots stay exclusive;
+  - `days` restrictions and grouping of several topics in one slot;
+  - an `until` deficit with extra minutes per week;
+  - credit for studied minutes, and later finish dates after missed sessions;
+  - today's session matches the calendar, and begun slots are skipped;
+  - invalid input is rejected;
+  - estimate calibration.
+- `tick-bench.mjs` with a 640-hour, 20-topic plan: about 0.3 ms for a full projection, 0.48 ms per tick, 0.54 ms per turn injection.
+- Real CLI runs used a fictional `zz-plan-test` profile with a fictional subject index, removed afterward:
+  - The request "Mon–Fri 19:00 2 h, Saturday 09:00 3 h, until done; chemistry Tue/Thu, circuits Mon/Wed/Fri, Saturday whatever is next" produced a persisted plan with those slots as preferences. Topic budgets were derived from the index (weekly hours × 16 ÷ topics) and labeled as hypotheses.
+  - The fictional bridge prerequisite was placed first with `after`, and the model asked the learner to confirm it.
+  - A follow-up in a new process began today's session early with `begin(planId)`. The block recorded the plan, its topic allocation, and the begun slot.
+- Bugs found and fixed during these runs:
+  - Slots could only be exclusive to one subject, which left a Saturday empty after the bridge course. Slot subjects are now preferences, with `strict` and `after` added.
+  - `begin` rejected `start: "now"`. It now treats only `HH:MM` as a slot selector.
+- Overhead regression (`run.py --repeats 2`, current vs the previous commit, `lesson` and `block-lesson`): teaching turns still had 0 tool calls and no time talk, prompt-cache hits stayed 0.97–0.98, and turn times stayed within noise (5.1–7.0 s).
+
+Not established: multi-week behavior in real use, DST transitions, plans spanning several cycles, and whether the hour budgets derived from a plan match real study time. The projection is a planning aid; topic completion still depends on learning evidence.

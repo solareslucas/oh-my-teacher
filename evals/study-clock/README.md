@@ -5,6 +5,7 @@ Checks whether `.omp/extensions/study-clock.js` and the **Schedule** workflow sl
 | Script | Cost | Measures |
 | --- | --- | --- |
 | `node evals/study-clock/tick-bench.mjs [extension.js]` | Local only, seconds | CPU time per one-minute tick and per-turn injection, using a fictional schedule with 300 past blocks; size of the injected text |
+| `node evals/study-clock/plan-check.mjs [extension.js]` | Local only, under a second | Deterministic checks of the weekly-plan engine: budgets fully scheduled, prerequisites first, slot preference vs strict, day restrictions and grouping, `until` deficit, credit for studied minutes, today's session, invalid input, estimate calibration |
 | `python3 evals/study-clock/run.py [--repeats N] [--scenario S] [--variant NAME=PATH]` | Real model calls, about 1 minute per run | The real `omp` CLI, per learner turn (below) |
 
 ## Variants

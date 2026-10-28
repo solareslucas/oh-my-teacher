@@ -94,7 +94,7 @@ Use when a learner returns to continue (`/teach-resume`). Resuming is a request 
 
 ## Schedule
 
-Use when a learner wants a timed study block (`/teach-schedule`, “schedule MAT000 for 2 hours today”). Time comes only from the `study_clock` tool and the `<study-clock>` block it injects; never estimate the time or elapsed minutes yourself. If the tool is unavailable (extension disabled), say so and use relative plans without claiming time checks.
+Use when a learner wants a timed study block (`/teach-schedule`, “schedule MAT000 for 2 hours today”) or a recurring weekly plan (“Monday to Friday, cycle 1 courses, until they are done”). Time comes only from the `study_clock` tool and the `<study-clock>` block it injects; never estimate the time or elapsed minutes yourself. If the tool is unavailable (extension disabled), say so and use relative plans without claiming time checks.
 
 1. **Learner and subject, before any tool call that creates a block.** An alias named in the request or selected earlier is an explicit selection: validate it and read that learner's `profile.md` (study plan, consent) and, if the plan names one, its subject index. Resolve the course/topic against that plan; if the name does not match exactly (for example `MATH000` when the plan has `MAT000`), ask which subject is meant and wait instead of creating a block under the unmatched name. Without an alias or plan, use the learner's own label session-only.
 2. **Storage.** Session-only by default. Pass `alias` with `persist: true` only when the selected learner's recorded consent covers `schedule.json` or the learner grants it now after you name the exact path; consent for other files does not extend to it. Pass `alias`/`persist` once; later calls reuse them.
@@ -103,6 +103,17 @@ Use when a learner wants a timed study block (`/teach-schedule`, “schedule MAT
 5. **During the block, time costs no tool call.** The injected `<study-clock>` message already gives the time, the block, and the task's pace each turn; do not call `status` for them. Mention time only when it changes what the learner should do (a notice, a segment change, a scope cut, or a direct question); otherwise the reply is teaching. On a study-clock notice (time warning, task over estimate, task spilling past the end, block end, planned block due), adapt in the next teaching turn: reduce scope, skip optional parts, or move to closing. Do not cut a learner mid-answer to announce time; finish the current exchange first.
 6. **Close** with `task_end` (completed/partial/abandoned) and `end`: one takeaway, the next step, and homework when the plan expects it. `extend` only when the learner chooses to continue.
 7. Schedule data (start/end times, task durations, estimate ratios) is planning data, not learning evidence: time on task never establishes understanding, and an overrun is not a failure. Record learning evidence in `progress.md` as usual. Time checks run only while an OMP session is open; there are no reminders outside it.
+
+**Weekly plans** (`plan_week`, `plan_view`, `plan_item`, `plan_status`; `begin` with `planId`):
+
+- **Agree on availability first:** days (Monday–Sunday), start time, and minutes per day, plus either an end date (`until`) or "until the hours are done". Ask only what is missing, and respect the learner's stated preferences (for example a minimum block length).
+- **Build the queue from the learner's plan:** the courses or cycle they name, topics in prerequisite order, and each topic's hour budget. Use the plan's own estimates when they exist, and say how you derived them (for example weekly hours × weeks ÷ number of topics). Label them as hypotheses to adjust with real study time. Never invent course content or hours: if the plan has none, ask, or propose a labeled starting estimate.
+- **Prerequisites and load:** put unmet or unverified prerequisites (for example a bridge course) first. If the learner's plan recommends fewer parallel courses at part-time load, say so before scheduling everything at once. The learner decides.
+- **Grouping by day:** slots with a `subject` fix which course a day gets. Slots without one take the next topic in queue order. A topic's `days` restricts where it may go. Several short topics are grouped into one slot automatically.
+- **Show the result:** call `plan_view` with the first week or two and the projected finish date per course. When `until` is set and hours do not fit, report the deficit and options (more minutes, more days, fewer courses, later date) without choosing for the learner.
+- **On a planned day:** the injected clock lists today's session and its topics. Start with `begin` (`planId`) when the learner is ready, then teach the listed topics. Ending the block credits the minutes actually studied, so missed or shortened sessions move the projection.
+- **Adjust:** when a topic is finished early, `plan_item` with `done: true`. When it needs more time, raise `hours`. Reopen a topic with `done: false`. Change availability or courses with `plan_week` and the same `planId` (studied minutes are kept). Pause or cancel with `plan_status`.
+- **Hours are not mastery:** budget consumed or a topic marked done is planning data. Whether the learner understands it is decided by evidence in `progress.md`, which can reopen a topic.
 
 ## Report
 
