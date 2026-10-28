@@ -1,6 +1,6 @@
 # Adaptive teaching and language learning
 
-This repository supplies OMP-native instructions and commands, not a teaching service, hidden learner database, voice engine, or automatic scheduler. The same workflow can support an age-five counting activity, a beginner adult's new subject, an expert child's interest, or PhD-level argument. **Age guides safety and presentation, not assumed competence.** The learner's actual response determines the next step; a model can make errors, and important work needs appropriate source checking and human review.
+This repository supplies OMP-native instructions and commands, not a teaching service, hidden learner database, voice engine, or background reminder service. A native study clock times study blocks only while an OMP session is open (see `/teach-schedule`). The same workflow can support an age-five counting activity, a beginner adult's new subject, an expert child's interest, or PhD-level argument. **Age guides safety and presentation, not assumed competence.** The learner's actual response determines the next step; a model can make errors, and important work needs appropriate source checking and human review.
 
 ## Start without a profile
 
@@ -29,6 +29,7 @@ For optional persistence, use `/teach-profile` to explicitly consent and select 
 | `/teach-language` | Distinguish subject support from target-language learning and use the matching workflow. |
 | `/teach-typst` | Draft or compile a Typst document from `artifacts/typst/` into `artifacts/pdf/` for the explicitly selected, consenting learner; Typst must already be installed. |
 | `/teach-resume` | For an explicitly named learner: status, pending homework, due review, then continue per the recorded study plan. |
+| `/teach-schedule` | Plans or runs a timed study block on the host clock. Each task gets a calibrated estimate; a task that would not fit becomes the last one and is cut down to the remaining time. Checks run every minute only while OMP is open. |
 
 Commands accept ordinary requests after their names. `/teach-language` can also select Lesson, Practice/homework, Feedback, Review, or Report explicitly. A command routes to a skill section; it is not a background process or an assurance that facts have already been verified.
 

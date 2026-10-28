@@ -127,6 +127,75 @@ All six CLI processes exited 0; their JSON events showed no tool execution error
 
 These checks establish observed tool-call behavior, not a measured latency improvement or learning-outcome equivalence. Provider latency, inference time, approvals, source lookups, and model instruction following still vary. No abrupt-exit recovery, guaranteed shutdown save, compaction durability, concurrent-editor race, or interactive TUI benchmark was tested. Necessary reasoning/source verification remains required. A read-only review found no must-fix defects; it was not independent runtime verification.
 
+## Study clock and timed blocks (added 2026-10-27)
+
+Exercised with **OMP 18.13.2** and the user's configured default model (model id not recorded). API evidence came from the installed docs `omp://extensions.md` (managed `ctx.setInterval`, `sendMessage` delivery modes, `before_agent_start` chaining), `omp://custom-tools.md`, `omp://approval-mode.md` (per-argument approval tiers), and `omp://extension-loading.md`.
+
+A temporary Bun harness, not kept in the repository, loaded `.omp/extensions/study-clock.js` with a stub API and a mocked `Date.now`, in a disposable `/tmp` workspace with a fictional alias:
+
+- Rejected an unsafe alias and persistence for an alias without `profile.md`. Wrote only `.teacher/learners/<fictional>/schedule.json`.
+- Three completed 20-minute estimates that took 30 minutes produced calibration factor 1.5 (`subject`, n=3). A later 25-minute estimate became 38 minutes, reported as not fitting the 30 remaining minutes, and was marked as the last task.
+- Interval ticks notified once each at 15 and 5 minutes left, for a task over its estimate, for a task spilling past the block end, at block end, and when a planned block was due. `task_rescope` re-evaluated the fit. A negative `extend` that would empty the block was refused. Read actions resolved to approval tier `read`, mutations to `write`.
+
+Real CLI runs (`omp -p --no-session --no-title --no-lsp --tools …`, ambient extension discovery) in this checkout with a fictional `zz-clock-test` profile, removed afterward. The real learner directory was not read.
+
+| Scenario | Observed outcome |
+| --- | --- |
+| Session-only `now` → `plan` → oversized `task_start` | The tool loaded with the real schema. The output matched the injected `<study-clock>` time, and the task was flagged as not fitting and as the last task. |
+| 1-minute block, `bash sleep 70` (`--approval-mode yolo`, verification-only) | A real `ctx.setInterval` tick delivered `[study clock …] … 0m left` to the model mid-run as a separate message. The first attempt without yolo could not run `sleep` headless. |
+| `/teach-schedule zz-clock-test MATH000 …` (plan has `MAT000`) | First wording: the model created a session-only block without reading the profile. The command and skill were then tightened. Rerun: it read only that profile, listed MAT000/MAT101, asked which was meant, and created no block or file. |
+| Correct code, then a 150-minute task, then acceptance of the cut | Created a persisted block (consent recorded in the fictional profile). Reported the task did not fit 120 minutes and proposed a reduced scope. After acceptance, `task_rescope` recorded 26/40 exercises at 100 minutes, kept `lastTask: true`, and logged the original scope and cut. |
+| Both extensions together | Both injections reached the model. First version: both blocks were in the system prompt. Current version: `<teacher-session-mode>` plus a constant clock note in the system prompt, and the `<study-clock>` reading as a hidden message after the user turn (checked in a separate CLI run). |
+
+Not established: TUI status-line rendering, notices delivered while idle in an interactive session (`nextTurn` was used, but only the mid-run `aside` path was observed), behavior across DST changes, concurrent sessions writing one schedule file, and whether the calibration heuristic improves real estimates. Ticks have one-minute granularity, and nothing runs when OMP is closed.
+
+### Overhead eval (`evals/study-clock/`)
+
+A question was whether the clock makes sessions slower. `evals/study-clock/run.py --repeats 2` ran the real CLI (OMP 18.13.2, `anthropic/claude-opus-5-5`) on two fictional four-turn scenarios. It compared `baseline` (session-mode only), `clock-v1` (the first version, which put the changing time into the system prompt), and `clock` (the current version: a constant system note plus a hidden per-turn `<study-clock>` message). Values are medians.
+
+| Metric | lesson: baseline | lesson: clock-v1 | lesson: clock | scheduled: baseline | scheduled: clock-v1 | scheduled: clock |
+| --- | --- | --- | --- | --- | --- | --- |
+| Wall time per run (s) | 38.4 | 37.0 | 33.3 | 41.7 | 39.5 | 40.1 |
+| Model requests per run | 5 | 5 | 5 | 5.5 | 9 | 8.5 |
+| Tool calls per run | 1 | 1 | 1 | 2 | 5 | 4.5 |
+| Uncached input tokens per run | 19,024 | 69,535 | 19,037 | 22,522 | 72,159 | 20,088 |
+| Cache hit, turns 2–4 | 0.964 | 0.205 | 0.967 | 0.971 | 0.596 | 0.978 |
+
+Findings:
+
+- **The first version had a real cost.** It rewrote the system prompt each turn, so every turn rewrote the prompt cache for the whole conversation: about 3.7× the uncached input tokens. That costs money, and provider latency grows with longer sessions. Moving the changing value into a message fixed it: the current version matches baseline on cache hits and uncached input.
+- **Ordinary teaching:** the clock added no requests or tool calls. Wall-time differences (±5 s per run) were inside sample noise with two repeats.
+- **Timed blocks:** the feature added about 2.5 `study_clock` calls and 3 model requests per four turns, with no measurable wall-time increase in this sample. Asked "how much time is left?", the baseline correctly said it could not know. The clock variant answered from the tool (59 minutes left, task 0/20 minutes, on time).
+- **Local CPU (`tick-bench.mjs`, 300-block fictional history, 397 KiB file):** about 0.46 ms per one-minute tick and 0.53 ms per turn injection. The per-turn message is about 68 tokens.
+
+Limits: two repeats on one model and provider, back-to-back turns (real pauses can exceed provider cache lifetimes for every variant alike), and no learning-quality comparison beyond reading the final answers.
+
+### Does the clock take time away from teaching? (2026-10-28)
+
+The eval was extended to track, per learner turn: seconds until the first visible text, approximate hidden reasoning tokens (output tokens minus `omp toks` counts of the visible text and tool arguments), teaching characters, and the share of visible text spent on time/schedule talk. The new `block-lesson` scenario gives the same learner turns 2–4 as `lesson` inside an active 60-minute block. `--repeats 3`, `anthropic/claude-opus-5-5`. `before` is a full `.omp/` snapshot taken before the change below.
+
+One-run smoke observation: during `before`, the model ended and restarted clock tasks between exercises (2 tool calls in a teaching turn: 10.4 s vs about 5 s for other turns). Changes made:
+
+- `plan` can start the first task in the same call.
+- `task_next` replaces `task_end` + `task_start`.
+- The skill says tasks are lesson segments (15+ minutes), not exercises; time comes from the injected message without tool calls; time is mentioned only when it changes what the learner should do.
+
+Turns 2–4 (9 turns per cell; means unless noted):
+
+| | lesson, no clock | lesson, clock installed | block, `before` | block, current |
+| --- | --- | --- | --- | --- |
+| Teaching turns with clock tool calls | 0/9 | 0/9 | **2/9** | 0/9 |
+| Turn seconds (mean / max) | 6.7 / 9.6 | 6.7 / 8.2 | 7.1 / 12.7 | 6.4 / 10.0 |
+| Seconds to first visible text | 4.8 | 5.1 | 5.8 | 4.5 |
+| Hidden reasoning tokens (approx.) | 242 | 285 | 237 | 245 |
+| Teaching characters | 691 | 606 | 683 | 633 |
+| Admin share of visible text (median) | 0 | 0 | 0.053 | 0 |
+| Turn 1 (opening the block): seconds; clock calls | — | — | 15.4; 2 | 11.1; 1 |
+
+For reference, the `block-lesson` prompts without the clock (`baseline`) took 5.5 s per teaching turn with 199 hidden tokens.
+
+Reading: after the change, an active block adds no tool calls or time talk to ordinary teaching turns, and turn times stay within noise. Hidden reasoning rose by about 40 tokens per turn in both clock columns (well under a second at typical output rates), but this is small next to run-to-run variation and not established as a real effect. Teaching characters vary by more between runs than between variants, and length is not quality. The keyword classifier over-counts time talk, and nothing here measures learning.
+
 ## What this does not establish
 
 - These are observed smoke scenarios on one model, not empirical validation of learning outcomes, a benchmark, or proof of reliable behavior on every model/language.
@@ -134,6 +203,6 @@ These checks establish observed tool-call behavior, not a measured latency impro
 - No audio, speech recognition, image/sign-language assessment, automatic reminder, publication submission, human-participant study, or empirical teaching-effectiveness evaluation was performed.
 - No full systematic review, broad adversarial/security audit, user-extension/MCP compatibility audit, or provider-retention audit was performed. Source appraisal and profile boundaries are instructions, not a sandbox or guarantee of truth.
 - The actual headless CLI was exercised; interactive TUI rendering/autocomplete was not visually evaluated.
-- No permanent source-text/wiring tests or application build were added: this is a declarative OMP workspace, and runtime command/skill behavior was exercised directly.
+- Apart from the opt-in `evals/study-clock/` overhead eval (real model calls, run manually), no permanent source-text/wiring tests or application build were added: this is a declarative OMP workspace, and runtime command/skill behavior was exercised directly.
 
 For later changes, rerun relevant fictional scenarios with `--no-session`; use only a unique disposable alias for persistence checks, inspect actual tool outcomes, and remove those records afterward. Update this file with observations rather than treating these results as permanent guarantees.

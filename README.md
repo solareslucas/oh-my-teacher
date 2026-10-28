@@ -42,6 +42,7 @@ Arguments are natural language, not a fixed form. Commands work in the learner's
 | `/teach-profile` | Optional learner selection, saving, corrections, forgetting | `/teach-profile save learner-a` |
 | `/teach-typst` | Compile or draft a Typst document (homework, summary, report) into the selected learner's `artifacts/` | `/teach-typst learner-a matematica-1/tarea-01` |
 | `/teach-resume` | Continue with a named learner: status, pending homework, then the next step per their plan | `/teach-resume learner-a` |
+| `/teach-schedule` | Timed study block on the host clock: plan, check pace, adapt the last task, close | `/teach-schedule learner-a MAT000 for 2 hours from now` |
 
 For source examples, replace `[source]` with an actual link or passage. Links are inspected when tools permit; an inaccessible paper is not treated as read. In an ordinary lesson, expect a brief explanation or worked example followed by something to try—not an entire course dumped into one turn. Request a direct answer or complete worked solution when that is more useful.
 
@@ -64,9 +65,19 @@ You can request “save at checkpoints,” “save each meaningful turn,” or �
 
 Mode detection uses the project's native `.omp/extensions/session-mode.js`; it exposes only whether OMP persistence is enabled, not the session filename or learner data. If you disable extension discovery, add `--extension .omp/extensions/session-mode.js` to keep detection. Without a runtime notice, mode is unknown and checkpoint cadence applies. Persistence-enabled does not guarantee that a transcript has reached disk.
 
+### Timed study blocks
+
+`.omp/extensions/study-clock.js` gives the teacher a deterministic clock instead of guessed times. It adds the current local time (and any active block) to every turn and provides the `study_clock` tool:
+
+- `plan` a block (“MAT000 for 2 hours, now” or “at 18:00”), `begin` a planned block, `extend`, `end`, `cancel`, `status`, `list`.
+- Before each lesson segment (tasks are 15+ minute segments, not single exercises) the teacher calls `task_start`, or `task_next` to end one segment and start the next, with an estimate. The tool multiplies it by a calibration factor, the median of that learner's past actual/estimate ratios (same subject once three completed tasks exist, otherwise all subjects; clamped 0.5–3), and reports whether the task fits the remaining time. A task that does not fit, or leaves under 10 minutes, is the **last task**; the teacher shrinks its scope rather than overrunning. `task_end` records actual minutes, so estimates adapt over time.
+- While the session is open, a check runs every minute and notifies at 15 and 5 minutes left, when a task passes its estimate or will spill past the block end, when the block ends, and when a planned block is due. The model receives the notice before its next step.
+
+Without an alias the schedule lives only in memory for this session. With an explicitly selected alias, `persist: true`, and consent covering the file, it is stored in `.teacher/learners/<alias>/schedule.json`. Checks need a running OMP session: nothing notifies you when OMP is closed, and time on task is planning data, not evidence of learning. With `--no-extensions`, add `--extension .omp/extensions/study-clock.js`. To measure its overhead against a run without it, see [`evals/study-clock/`](evals/study-clock/README.md).
+
 `.teacher/` is Git-ignored, not encrypted or access-controlled. For young children, use trusted-adult supervision and session-only mode until an adult is involved in persistence. For different people, use fresh OMP sessions; for privacy isolation, separate OS accounts/checkouts. Switching a profile cannot remove the previous conversation from context.
 
-The project disables OMP memory, auto-learning, auto-resume, and workspace-tree inclusion. User extensions, MCP services, CLI overrides, provider retention, and operating-system backups remain outside this configuration's control. Review your integrations. Review dates are manual suggestions; no notification service runs in the background.
+The project disables OMP memory, auto-learning, auto-resume, and workspace-tree inclusion. User extensions, MCP services, CLI overrides, provider retention, and operating-system backups remain outside this configuration's control. Review your integrations. Review dates are manual suggestions; the study clock only checks time inside a running session, and no notification service runs when OMP is closed.
 
 ## Research and honesty
 
