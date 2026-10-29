@@ -232,3 +232,14 @@ Exercised with OMP 18.13.2 and `anthropic/claude-opus-5-5`.
 - Overhead regression (`run.py --repeats 2`, current vs the previous commit, `lesson` and `block-lesson`): teaching turns still had 0 tool calls and no time talk, prompt-cache hits stayed 0.97–0.98, and turn times stayed within noise (5.1–7.0 s).
 
 Not established: multi-week behavior in real use, DST transitions, plans spanning several cycles, and whether the hour budgets derived from a plan match real study time. The projection is a planning aid; topic completion still depends on learning evidence.
+
+## Native study-block pause/resume (2026-10-28)
+
+Implementation scope: the shared project-native `.omp/extensions/study-clock.js`, not the upstream OMP core or a global installation. Consulted installed `omp://docs/extensions.md`; no SDK or new dependencies.
+
+- `node evals/study-clock/plan-check.mjs`: all 21 deterministic checks passed (10 existing checks and 11 new action/event checks). Fictional temporary profiles and an injected test clock exercised frozen block/task elapsed and remaining time, repeated pause/resume cycles, shifted deadlines with original identities/start times preserved, rescoping after breaks, task calibration and weekly credit excluding breaks, ending while paused, competing-start and mutation guards, transactional failures, persistence across fresh extension instances, legacy v1 data, and suppression/reappearance of timer alerts.
+- `node evals/study-clock/tick-bench.mjs`: passed with a 402 KiB fictional schedule and 301 blocks; approximately 0.52 ms per tick, 0.46 ms per plan projection, and 0.59 ms per turn injection in this run. These are local observations, not a latency guarantee or model-overhead comparison.
+- Real OMP 18.13.3 CLI smoke test: isolated temporary working directory, `--no-session --no-title --no-extensions --extension <absolute project clock path> --no-lsp --no-context-files --no-rules --no-skills --tools read,write --approval-mode yolo --max-time 180`. A fictional session-only request executed `plan` with first task, `pause`, `status`, `resume`, `task_end`, and `end` through the actual native `xd://study_clock` schema and dispatch. The process exited 0. Assertions on actual tool-event details confirmed the same B001/T1, frozen status during pause, a later deadline on resume, no persisted files, and no remaining active smoke block. No learner records were opened or used.
+- `git diff --check` passed.
+
+Limitations: the CLI smoke used a short real break; long breaks and fresh-instance persistence were tested deterministically rather than by waiting hours. Interactive TUI appearance, DST/system-clock jumps, and concurrent writers were not newly verified. Weekly slots are not automatically shifted by pause/resume. Existing running OMP sessions need to reload the extension or start a new session to acquire the changed action schema; the smoke test used a fresh process.

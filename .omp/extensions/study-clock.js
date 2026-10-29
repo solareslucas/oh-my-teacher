@@ -11,8 +11,8 @@ const LAST_TASK_MARGIN_MIN = 10; // less than this left after a task => it is th
 const WARN_MINUTES = [5, 15]; // ascending: the tightest crossed threshold is reported
 const CALIBRATION_MIN_SAMPLES = 3;
 const CALIBRATION_WINDOW = 20;
-const MUTATING = new Set(["plan_week", "plan_item", "plan_status", "plan", "begin", "task_start", "task_next", "task_rescope", "task_end", "extend", "end", "cancel"]);
-const CLOCK_POLICY = "A <study-clock> message from the host accompanies each user turn with the deterministic local time and any active study block. Use it (or the study_clock tool) instead of guessing time; schedules are planning data, not learning evidence.";
+const MUTATING = new Set(["plan_week", "plan_item", "plan_status", "plan", "begin", "pause", "resume", "task_start", "task_next", "task_rescope", "task_end", "extend", "end", "cancel"]);
+const CLOCK_POLICY = "A <study-clock> message from the host accompanies each user turn with the deterministic local time and any active or paused study block. Use it (or the study_clock tool) instead of guessing time; schedules are planning data, not learning evidence.";
 
 const pad = n => String(Math.trunc(Math.abs(n))).padStart(2, "0");
 const timeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? "unknown";
@@ -69,9 +69,15 @@ export function calibration(samples, subject) {
 }
 
 const emptyState = () => ({ version: 1, blocks: [], calibration: [], plans: [] });
-const activeBlock = state => state.blocks.find(b => b.status === "active");
+// A paused block still occupies the clock; it is not available for a new block.
+const occupiedBlock = state => state.blocks.find(b => b.status === "active" || b.status === "paused");
 const runningTask = block => block?.tasks.find(t => t.status === "running");
-// remaining = block time left measured from the task's start; elapsed task time counts against it.
+// pausedMs stores completed breaks (optional in legacy v1 records). The open
+// break is represented by pausedAt and is counted only when resumed or ended.
+const studyNow = (block, now) => block.status === "paused" ? Date.parse(block.pausedAt) : now;
+const studyElapsed = (entry, now) => minutesBetween(Date.parse(entry.startedAt), now) - (entry.pausedMs ?? 0) / 60_000;
+const taskStart = task => Date.parse(task.startedAt) + (task.pausedMs ?? 0);
+// remaining = study time available from the task's start, excluding its breaks.
 function fitTask(state, block, estimateMin, taskStart, now) {
   const cal = calibration(state.calibration, block.subject);
   const adjusted = Math.max(1, Math.round(estimateMin * cal.factor));
@@ -102,25 +108,28 @@ export function blockStatus(block, now) {
     out.due = now >= start;
     return out;
   }
-  if (block.status !== "active") {
+  if (block.status !== "active" && block.status !== "paused") {
     out.endedAt = block.endedAt ?? null;
     return out;
   }
-  out.elapsedMin = round1(minutesBetween(start, now));
-  out.remainingMin = round1(minutesBetween(now, ends));
+  const effectiveNow = studyNow(block, now);
+  if (block.status === "paused") out.pausedAt = block.pausedAt;
+  out.pausedMin = round1(((block.pausedMs ?? 0) + (now - effectiveNow)) / 60_000);
+  out.elapsedMin = round1(studyElapsed(block, effectiveNow));
+  out.remainingMin = round1(minutesBetween(effectiveNow, ends));
   out.overtime = out.remainingMin < 0;
   const task = runningTask(block);
   if (task) {
-    const tStart = Date.parse(task.startedAt);
-    const projected = tStart + task.adjustedMin * 60_000;
+    const projected = taskStart(task) + task.adjustedMin * 60_000;
     out.task = {
       id: task.id,
       title: task.title,
       estimateMin: task.estimateMin,
       adjustedMin: task.adjustedMin,
-      elapsedMin: round1(minutesBetween(tStart, now)),
+      elapsedMin: round1(studyElapsed(task, effectiveNow)),
+      remainingMin: round1(task.adjustedMin - studyElapsed(task, effectiveNow)),
       projectedEnd: isoLocal(projected),
-      overrun: now > projected,
+      overrun: effectiveNow > projected,
       spillsPastBlock: projected > ends,
       lastTask: task.lastTask,
     };
@@ -133,9 +142,10 @@ export function summarize(status) {
   if (status.status === "planned") {
     return `${status.id} ${status.subject} planned ${hhmm(Date.parse(status.start))}–${hhmm(Date.parse(status.endsAt))} (${status.due ? "due now" : `starts in ${fmtMin(status.startsInMin)}`})`;
   }
-  if (status.status !== "active") return `${status.id} ${status.subject} ${status.status}`;
+  if (status.status !== "active" && status.status !== "paused") return `${status.id} ${status.subject} ${status.status}`;
   const parts = [
     `${status.id} ${status.subject}${status.topic ? ` ${status.topic}` : ""} ${hhmm(Date.parse(status.start))}–${hhmm(Date.parse(status.endsAt))}`,
+    ...(status.status === "paused" ? ["PAUSED (study time frozen; resume to continue)"] : []),
     `elapsed ${fmtMin(status.elapsedMin)}`,
     status.overtime ? `OVERTIME ${fmtMin(-status.remainingMin)}` : `remaining ${fmtMin(status.remainingMin)}`,
   ];
@@ -409,7 +419,10 @@ export default function (pi) {
   }
 
   function apply(action, params, state, now) {
-    const block = activeBlock(state);
+    const block = occupiedBlock(state);
+    if (block?.status === "paused" && ["task_start", "task_next", "task_rescope", "task_end", "extend"].includes(action)) {
+      throw new Error(`Block ${block.id} is paused; resume it before ${action}.`);
+    }
     switch (action) {
       case "now":
       case "status":
@@ -426,7 +439,7 @@ export default function (pi) {
         if (!(params.durationMinutes > 0)) throw new Error("plan requires durationMinutes > 0.");
         const start = parseStart(params.start, now);
         const immediate = start <= now;
-        if (immediate && block) throw new Error(`Block ${block.id} is already active; end it before starting another.`);
+        if (immediate && block) throw new Error(`Block ${block.id} is already ${block.status}; end it before starting another.`);
         const b = {
           id: nextId("B", state.blocks),
           subject: params.subject,
@@ -452,7 +465,7 @@ export default function (pi) {
         return { changed: true, message: created, block: b.id };
       }
       case "begin": {
-        if (block) throw new Error(`Block ${block.id} is already active.`);
+        if (block) throw new Error(`Block ${block.id} is already ${block.status}.`);
         if (params.planId) {
           const plan = state.plans.find(p => p.id === params.planId && p.status === "active");
           if (!plan) throw new Error(`No active plan ${params.planId}.`);
@@ -497,6 +510,24 @@ export default function (pi) {
         b.endsAt = isoLocal(now + b.durationMin * 60_000);
         return { changed: true, message: `Began ${summarize(blockStatus(b, now))}`, block: b.id };
       }
+      case "pause": {
+        if (!block) throw new Error("No active block to pause.");
+        if (block.status === "paused") throw new Error(`Block ${block.id} is already paused.`);
+        block.status = "paused";
+        block.pausedAt = isoLocal(now);
+        return { changed: true, message: `Paused ${summarize(blockStatus(block, now))}` };
+      }
+      case "resume": {
+        if (!block || block.status !== "paused") throw new Error("No paused block to resume.");
+        const breakMs = now - Date.parse(block.pausedAt);
+        block.pausedMs = (block.pausedMs ?? 0) + breakMs;
+        block.endsAt = isoLocal(Date.parse(block.endsAt) + breakMs);
+        const task = runningTask(block);
+        if (task) task.pausedMs = (task.pausedMs ?? 0) + breakMs;
+        delete block.pausedAt;
+        block.status = "active";
+        return { changed: true, message: `Resumed ${summarize(blockStatus(block, now))}` };
+      }
       case "task_next": {
         // End the running task (if any) and start the next one in a single call.
         const ended = runningTask(block) ? apply("task_end", params, state, now).message : null;
@@ -530,7 +561,7 @@ export default function (pi) {
         const t = runningTask(block);
         if (!t) throw new Error("No running task to rescope.");
         if (!(params.estimateMinutes > 0)) throw new Error("task_rescope requires estimateMinutes > 0 (total minutes for the reduced task, counted from its start).");
-        const fit = fitTask(state, block, params.estimateMinutes, Date.parse(t.startedAt), now);
+        const fit = fitTask(state, block, params.estimateMinutes, taskStart(t), now);
         (t.rescoped ??= []).push({ at: isoLocal(now), fromTitle: t.title, fromEstimateMin: t.estimateMin, note: params.note });
         if (params.title) t.title = params.title;
         t.estimateMin = params.estimateMinutes;
@@ -540,7 +571,7 @@ export default function (pi) {
         t.lastTask = wasLast || fit.lastTask; // a task that did not fit stays the last task
         return {
           changed: true,
-          message: `Rescoped ${t.id} "${t.title}" to ${fmtMin(t.estimateMin)} (calibrated ${fmtMin(fit.adjusted)}, ends ~${hhmm(Date.parse(t.startedAt) + fit.adjusted * 60_000)}); ${fit.fits ? "now fits" : fit.decision}${t.lastTask ? "; still the last task: use leftover time to close (summary/homework)" : ""}`,
+          message: `Rescoped ${t.id} "${t.title}" to ${fmtMin(t.estimateMin)} (calibrated ${fmtMin(fit.adjusted)}, ends ~${hhmm(taskStart(t) + fit.adjusted * 60_000)}); ${fit.fits ? "now fits" : fit.decision}${t.lastTask ? "; still the last task: use leftover time to close (summary/homework)" : ""}`,
         };
       }
       case "task_end": {
@@ -549,7 +580,7 @@ export default function (pi) {
         const outcome = params.outcome ?? "completed";
         t.status = outcome;
         t.endedAt = isoLocal(now);
-        t.actualMin = round1(minutesBetween(Date.parse(t.startedAt), now));
+        t.actualMin = round1(studyElapsed(t, now));
         if (params.note) t.note = params.note;
         if (outcome === "completed" && t.actualMin > 0) {
           state.calibration.push({ subject: block.subject, estimateMin: t.estimateMin, actualMin: t.actualMin, at: t.endedAt });
@@ -573,16 +604,24 @@ export default function (pi) {
       }
       case "end": {
         if (!block) throw new Error("No active block.");
+        const effectiveNow = studyNow(block, now);
+        const used = studyElapsed(block, effectiveNow);
         const t = runningTask(block);
         if (t) {
           t.status = "partial";
           t.endedAt = isoLocal(now);
-          t.actualMin = round1(minutesBetween(Date.parse(t.startedAt), now));
+          t.actualMin = round1(studyElapsed(t, effectiveNow));
+        }
+        if (block.status === "paused") {
+          const breakMs = now - effectiveNow;
+          block.pausedMs = (block.pausedMs ?? 0) + breakMs;
+          if (t) t.pausedMs = (t.pausedMs ?? 0) + breakMs;
+          delete block.pausedAt;
         }
         block.status = "ended";
         block.endedAt = isoLocal(now);
         if (params.note) block.note = params.note;
-        const used = minutesBetween(Date.parse(block.startedAt), now);
+        block.actualMin = round1(used);
         let planNote = "";
         const plan = block.planId && state.plans.find(p => p.id === block.planId);
         if (plan && block.allocation) {
@@ -654,7 +693,7 @@ export default function (pi) {
       "Actions: now | status | list (date YYYY-MM-DD) | plan (subject, topic?, durationMinutes, start: now|HH:MM|ISO; optional title+estimateMinutes also starts the first task) | begin (blockId?) |",
       "task_start (title, estimateMinutes: honest minutes for this learner) | task_next (ends the running task with outcome, starts title/estimateMinutes) | task_rescope (estimateMinutes: total minutes of the reduced task from its start, title?, note?) |",
       "task_end (outcome: completed|partial|abandoned, note?) |",
-      "extend (minutes, may be negative) | end (note?) | cancel (blockId).",
+      "pause | resume (freeze/continue the same block and task; breaks do not count as study time and deadlines shift on resume) | extend (minutes, may be negative) | end (note?; also allowed while paused) | cancel (blockId). While paused, resume before task_start/task_next/task_rescope/task_end or extend; a second block cannot start.",
       "Weekly plans: plan_week (name, slots [{day mon..sun, start HH:MM, durationMinutes, subject?}], items [{subject, topic?, title?, hours, days?}] in study order, startDate?, until?; planId to edit) |",
       "plan_view (planId?, weeks?) | plan_item (planId, itemId|topic, hours? | done true/false) | plan_status (planId, status active|paused|cancelled|completed) | begin (planId, start? HH:MM) starts today's next planned session now (early or late is fine) and credits its topics; use it instead of plan for planned days.",
       "Slots repeat weekly; a slot's subject is a preference (strict=true makes it exclusive); otherwise it takes the next eligible topic in queue order. Several topics share a slot when they fit, so topics are grouped by day automatically. Items with after=[...] wait for their prerequisites.",
@@ -664,7 +703,7 @@ export default function (pi) {
       "Pass alias/persist once; later calls reuse that selection. Schedule data is planning data, never learning evidence.",
     ].join(" "),
     parameters: z.object({
-      action: z.enum(["now", "status", "list", "plan", "begin", "task_start", "task_next", "task_rescope", "task_end", "extend", "end", "cancel", "plan_week", "plan_view", "plan_item", "plan_status"]),
+      action: z.enum(["now", "status", "list", "plan", "begin", "pause", "resume", "task_start", "task_next", "task_rescope", "task_end", "extend", "end", "cancel", "plan_week", "plan_view", "plan_item", "plan_status"]),
       alias: z.string().optional().describe("Explicitly selected learner alias"),
       persist: z.boolean().optional().describe("true = store in the alias's schedule.json (consent required)"),
       subject: z.string().optional(),
@@ -707,11 +746,13 @@ export default function (pi) {
       const cwd = ctx?.cwd ?? pi.cwd ?? process.cwd();
       const now = Date.now();
       const r = resolveRef(cwd, params);
-      const state = load(cwd, r);
+      // Apply transactionally: validation failures (including task_next) must not
+      // mutate the selected in-memory schedule or write a partial disk update.
+      const state = structuredClone(load(cwd, r));
       const result = apply(params.action, params, state, now);
       const saved = result.changed ? save(cwd, r, state) : null;
       ref = r;
-      const block = activeBlock(state);
+      const block = occupiedBlock(state);
       const details = {
         clock: clockInfo(now),
         storage: r.persist ? `.teacher/learners/${r.alias}/schedule.json` : "session-only (memory)",
@@ -729,7 +770,7 @@ export default function (pi) {
     if (!ref.persist && memoryState.blocks.length === 0 && memoryState.plans.length === 0) return null;
     try {
       const state = load(cwd, ref);
-      const active = activeBlock(state);
+      const active = occupiedBlock(state);
       const due = state.blocks.filter(b => b.status === "planned" && Date.parse(b.plannedStart) <= now);
       const today = state.plans.flatMap(p => todaySessions(p, now).map(s => ({ planId: p.id, ...s, dueNow: s.startMs <= now })));
       return { active: active ? blockStatus(active, now) : null, due: due.map(b => blockStatus(b, now)), today };
@@ -747,7 +788,7 @@ export default function (pi) {
       }
     }
     const a = status.active;
-    if (!a) return out;
+    if (!a || a.status !== "active") return out;
     if (a.overtime) out.push([`${a.id}:ended`, `Study block ${a.id} (${a.subject}) has reached its planned end. Close it: summarize, assign homework per plan, or extend only if the learner chooses.`]);
     else for (const w of WARN_MINUTES) if (a.remainingMin <= w) { out.push([`${a.id}:warn${w}`, `Study block ${a.id} (${a.subject}): ${fmtMin(a.remainingMin)} left.`]); break; }
     if (a.task?.spillsPastBlock) out.push([`${a.id}:${a.task.id}:spill`, `Task ${a.task.id} is projected to finish after the block ends; treat it as the last task and reduce its scope.`]);
@@ -779,7 +820,7 @@ export default function (pi) {
     const status = currentStatus(ctx.cwd, now);
     const info = clockInfo(now);
     const lines = [`now: ${info.now} (${info.timeZone}, ${info.weekday})`];
-    if (status?.active) lines.push(`active block: ${summarize(status.active)}`);
+    if (status?.active) lines.push(`${status.active.status === "paused" ? "paused" : "active"} block: ${summarize(status.active)}`);
     for (const d of status?.due ?? []) lines.push(`due: ${summarize(d)}`);
     for (const s of status?.today ?? []) {
       lines.push(`today (plan ${s.planId}): ${s.start}–${s.end} ${s.alloc.map(a => `${a.label} ${fmtMin(a.minutes)}`).join(" + ")}${s.dueNow ? " [due now]" : ""}`);
