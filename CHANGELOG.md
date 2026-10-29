@@ -37,3 +37,4 @@
 
 - Added native `pause` and `resume` actions to the shared study-clock extension. Breaks preserve the block/task and remaining study time, shift deadlines on resume, suppress paused timer warnings, and are excluded from task calibration and weekly study credit. Paused schedules persist under the existing consent rules; weekly slots are not automatically rescheduled.
 - Updated the scheduling workflow and command to use real pauses instead of closing and recreating blocks.
+- Clarified that stopped lessons continue from their unfinished learning checkpoint in the next scheduled block of the same subject, without promising a return date or leaving a timer paused.

@@ -243,3 +243,9 @@ Implementation scope: the shared project-native `.omp/extensions/study-clock.js`
 - `git diff --check` passed.
 
 Limitations: the CLI smoke used a short real break; long breaks and fresh-instance persistence were tested deterministically rather than by waiting hours. Interactive TUI appearance, DST/system-clock jumps, and concurrent writers were not newly verified. Weekly slots are not automatically shifted by pause/resume. Existing running OMP sessions need to reload the extension or start a new session to acquire the changed action schema; the smoke test used a fresh process.
+
+## Stopped-lesson continuity (2026-10-28)
+
+Exercised the updated Schedule workflow through the actual `/teach-schedule` command with OMP 18.13.3, `--no-session --no-title --no-extensions --no-lsp --no-context-files --no-rules --tools read --max-time 120`. The prompt supplied a fictional session-only BIO900 plan, a closed timer, and an unfinished BIO900-T01 conclusion; it requested continuation in the next matching subject block without a date promise or new activity.
+
+The process exited 0. Actual tool events showed native skill discovery and command expansion, with reads only of the tutoring skill and project rules/protocol; no private-profile reads, file writes, or timer starts. The response kept the timer stopped, placed a brief retrieval before the unfinished conclusion in the next BIO900 block, did not restart the lesson or advance the topic, and required learner readiness without promising a date. This is one model/CLI scenario, not a guarantee of future attendance or behavior in every session.
