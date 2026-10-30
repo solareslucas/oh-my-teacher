@@ -269,9 +269,10 @@ Limits: one model and provider, small samples, short fictional exercises. Severa
 
 ## Hash check without an approval prompt (added 2026-10-30)
 
-`.omp/config.yml` adds one `bash.patterns` allow rule, `shasum -a 1 *`, so the tutor can compare a submission's hash with the one recorded when it was graded without asking for approval each time. Exercised with OMP 18.14.0 in print mode (`-p --no-session`, no interactive UI, so any call needing approval is refused):
+`.omp/config.yml` adds one `bash.patterns` allow rule, `shasum *`, so the tutor can compare a submission's hash with the one recorded when it was graded without asking for approval each time. `shasum` has no option that writes files. Exercised with OMP 18.14.0 in print mode (`-p --no-session`, no interactive UI, so any call needing approval is refused):
 
-- `shasum -a 1 README.md` ran and returned the hash.
-- `shasum -a 1 README.md && echo chained` was refused with "requires approval but no interactive UI available": allow rules match the whole command, so chains still need approval.
+- First version (`shasum -a 1 *`): `shasum -a 1 README.md` ran, but the learner's plain `shasum <file>` still prompted, reproduced in print mode as a refusal. The rule was widened to `shasum *`.
+- `shasum README.md` and `shasum -a 1 README.md` ran and returned the hash.
+- `shasum -a 1 README.md && echo chained` and `shasum README.md | cat` were refused with "requires approval but no interactive UI available": allow rules match the whole command, so chains and pipes still need approval. (A redirection probe was declined by the model before reaching the approval gate, so it is not evidence either way.)
 
 Limits: approval policy, not containment. Only the `bash` tool is covered; other commands keep the `write` approval mode.

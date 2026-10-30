@@ -10,9 +10,10 @@ autoResume: false
 includeWorkspaceTree: false
 tools:
   approvalMode: write
-# Read-only hash used to tell a resubmission from an already graded file.
-# Allow rules match the whole command; chains and redirections still prompt.
+# Read-only hashing (shasum has no file-writing options), used to tell a
+# resubmission from an already graded file. Allow rules match the whole
+# command; chains and redirections still prompt.
 bash:
   patterns:
-    - match: "shasum -a 1 *"
+    - match: "shasum *"
       approval: allow
