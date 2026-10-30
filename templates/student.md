@@ -35,7 +35,8 @@ The learner sets expectations here; the tutor decides each assignment's composit
 - Kinds of work the learner wants available (e.g. guided investigations, projects, code); composition still follows evidence:
 - Target assessment format, per subject (e.g. handwritten exam, project, oral exam, runnable code):
 - Preferred delivery medium(s): chat / Typst PDF via `/teach-typst` / code files / photos (only if the model reads images)
-- Solutions: separate document after the attempt / only on request
+- Solutions: released on explicit request or once no further submission is allowed (default) / other learner-set rule
+- Grading scheme (optional, learner-set; omit for no grades): scale and percentage-to-grade table with its source; resubmission rule; single-attempt assessments (exams); course weighting; verdict format
 - Plan recorded or last changed (date):
 
 ## Domain-specific starting point

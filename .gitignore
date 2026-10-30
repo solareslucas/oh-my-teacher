@@ -8,3 +8,4 @@
 .omp/sessions/
 .omp/cache/
 *.log
+__pycache__/

@@ -249,3 +249,29 @@ Limitations: the CLI smoke used a short real break; long breaks and fresh-instan
 Exercised the updated Schedule workflow through the actual `/teach-schedule` command with OMP 18.13.3, `--no-session --no-title --no-extensions --no-lsp --no-context-files --no-rules --tools read --max-time 120`. The prompt supplied a fictional session-only BIO900 plan, a closed timer, and an unfinished BIO900-T01 conclusion; it requested continuation in the next matching subject block without a date promise or new activity.
 
 The process exited 0. Actual tool events showed native skill discovery and command expansion, with reads only of the tutoring skill and project rules/protocol; no private-profile reads, file writes, or timer starts. The response kept the timer stopped, placed a brief retrieval before the unfinished conclusion in the next BIO900 block, did not restart the lesson or advance the topic, and required learner readiness without promising a date. This is one model/CLI scenario, not a guarantee of future attendance or behavior in every session.
+
+## Candid feedback without handing over fixes (added 2026-10-30)
+
+Prompted by a learner report that the tutor kept giving answers during homework review and softened its verdicts. Changes: a sticky rule in `.omp/RULES.md`; candor wording in `.omp/SYSTEM.md`; in `adaptive-tutor`, Lesson step 4–5, Practice/homework steps 4–5, and Feedback steps 2–3 (verdict first; locate and classify errors; no corrected values, steps, statements, terms, checks, or answers while a revision remains), plus a **Grading** subsection that applies only when the learner's plan defines a scheme; matching updates to `/teach-feedback`, the programming subject profile, `language-coach`, `docs/teaching.md`, and the student/assignment templates.
+
+New opt-in eval `evals/feedback-candor/` (real CLI, `--no-session --no-extensions --tools read`, fictional prompts, no `.teacher/`). OMP 18.14.0, model `claude-opus-5-5` (from JSON events). `before` is a full `.omp/` snapshot taken before the change.
+
+| Run | Scenarios × repeats | Result |
+| --- | --- | --- |
+| 1: `before` vs first version | `feedback` (2 turns), `feedback-en`, `lesson`; × 2 | No literal leaks in either variant: when the learner says resubmission is possible, short exercises did not discriminate. Explicit solution request answered 2/2 in both. Cushioning phrases (lexicon rescored after removing evidence-backed phrases): `before` 4/8 turns ("Thanks for sending", "not correct yet", "todavía no es correcto", "No del todo"), new 0/8. New replies open with the verdict; `before` replies opened with what went well. |
+| 2: `before` vs first version | `homework-plain` × 3: "can you review my homework?" on a multi-part assignment with explanation items, resubmission not mentioned (the reported trigger) | Read in full. `before`: 3/3 runs handed over substantive fixes (the corrected conclusion of the explanation item 2/3, the rewritten absolute-value equality 2/3, the omitted check's result 1/3, a counterexample pair 1/3). First version: 0/3 substantive fixes, but 3/3 supplied a precise term for an imprecise one ("can be 0"). The rule was then extended to corrected statements, terms, and checks. |
+| 3: final version | all four scenarios × 3 | 0/15 turns with leak patterns; explicit solution request answered 3/3; 0/15 turns with cushioning phrases. The three `homework-plain` replies were read in full: no substantive fix; the imprecise term was quoted and flagged with a cue, without the replacement. |
+| 4: `before` vs final, published prompt | `homework-plain` × 3 after rewording the fictional answers so the tracked prompt shares no wording with any real learner's work | Read in full. `before`: 3/3 runs supplied fixes (the precise term "≤ 0" 3/3, the omitted check computed as m(1) = 9 2/3, a counterexample pair 2/3). Final: 0/3; imprecise words were quoted and flagged with a cue ("look at x = 3"). Patterns were extended to the observed "≤ 0" phrasings; rescoring then matched the manual reading (3/3 vs 0/3). |
+
+A separate grading smoke run (`/teach-feedback` with a fictional percentage table, 3-slot resubmission rule, and announced points) produced a per-criterion table, 10/30 = 33.3 % → 5.0, the conditional maximum (33.3 + 100 + 100)/3 ≈ 77.8 % → 2.3 (arithmetic checked), stated its scoring assumptions (no partial credit in the announced rubric), and gave no fixes.
+
+Limits: one model and provider, small samples, short fictional exercises. Several `homework-plain` patterns match phrasings observed in runs 2 and 4; patterns miss paraphrases, so replies were also read. Runs 2–3 used an earlier wording of the `homework-plain` answers; run 4 is the published prompt. The reported failure happened late in a long saved session with a selected profile and a Typst file; long-context behavior, file-based submissions, children's wording, and multi-turn revision cycles were not exercised. Nothing here measures learning.
+
+## Hash check without an approval prompt (added 2026-10-30)
+
+`.omp/config.yml` adds one `bash.patterns` allow rule, `shasum -a 1 *`, so the tutor can compare a submission's hash with the one recorded when it was graded without asking for approval each time. Exercised with OMP 18.14.0 in print mode (`-p --no-session`, no interactive UI, so any call needing approval is refused):
+
+- `shasum -a 1 README.md` ran and returned the hash.
+- `shasum -a 1 README.md && echo chained` was refused with "requires approval but no interactive UI available": allow rules match the whole command, so chains still need approval.
+
+Limits: approval policy, not containment. Only the `bash` tool is covered; other commands keep the `write` approval mode.

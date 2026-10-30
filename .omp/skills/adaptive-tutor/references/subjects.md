@@ -21,7 +21,7 @@ These profiles are starting points, not rules that override the learner's actual
 ## Programming
 
 - **Submit:** runnable code plus a short explanation of the approach.
-- **Check:** actually run it and run tests when tools allow; report real output only. Also review readability, structure, and efficiency where relevant. Automated checks mostly find errors, so add how to fix and what to try next. Hidden tests or reference solutions are not shown before the attempt.
+- **Check:** actually run it and run tests when tools allow; report real output only. Also review readability, structure, and efficiency where relevant. Automated checks mostly find errors, so add where the defect is and what to investigate next, not the fixed code while a revision remains. Hidden tests or reference solutions are not shown before the attempt.
 - **Needs:** code files under the learner's `artifacts/code/<subject>/`, an approved shell for execution.
 - **Cannot observe:** that code ran unless the run is actually performed or its output is supplied.
 
