@@ -4,6 +4,8 @@ An OMP-native workspace for adaptive learning, language practice, and evidence-b
 
 The student is the starting point: goals, preferred language, prior knowledge, access needs, time, and demonstrated understanding. Age guides safe presentation, not presumed ability. Models can still make mistakes: this configuration requires checking, honest uncertainty, and source attribution rather than promising infallibility.
 
+The tutor owns grading, feedback, and evaluation justification. Homework uses evidence-selected subject sections A–E; F, if included, is tutor feedback only. Learners provide subject reasoning, checks, and revision evidence, with brief natural-language disclosure of help—not mandatory self-grading, a help table, a remaining doubt, or a closing report. Each assignment ends with a tutor-written one-minute "before you submit" check aimed at omissions; nothing is written, submitted, or graded for it, and points lost to omissions are tracked to judge whether it helps. Missing administrative closure does not block progress; reflection is optional unless it is itself an agreed learning objective.
+
 ## Start
 
 1. Install and authenticate [Oh My Pi](https://github.com/can1357/oh-my-pi) using its own setup instructions.

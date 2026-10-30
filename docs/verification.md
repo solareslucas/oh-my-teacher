@@ -276,3 +276,63 @@ Limits: one model and provider, small samples, short fictional exercises. Severa
 - `shasum -a 1 README.md && echo chained` and `shasum README.md | cat` were refused with "requires approval but no interactive UI available": allow rules match the whole command, so chains and pipes still need approval. (A redirection probe was declined by the model before reaching the approval gate, so it is not evidence either way.)
 
 Limits: approval policy, not containment. Only the `bash` tool is covered; other commands keep the `write` approval mode.
+
+## Tutor-owned evaluation without mandatory learner closure (added 2026-10-30)
+
+Exercised with **OMP 18.14.0**, model **`gpt-6.1-sol`** (JSON message metadata). A temporary Python standard-library driver reused the real-CLI runner in `evals/feedback-candor/run.py` and added three fictional scenarios in memory. Each run copied only public `.omp/`, `templates/`, and `docs/` into a disposable workspace; no real learner records or submissions were read or copied for these tests. Native flags: `-p --mode json --no-session --no-title --no-extensions --no-lsp --tools read --approval-mode write --max-time 180`. All five runs exited 0; all seven replies were read in full.
+
+| Scenario | Observed outcome |
+| --- | --- |
+| `/teach-practice`, ten-minute equation homework, session-only | Supplied an ID, subject tasks, reasoning/check requirements, criteria without a numerical grade, and ordinary help disclosure. Explicitly said no self-assessment or final report was needed. No mandatory F, doubt statement, or help table. |
+| `/teach-feedback`, two fully worked correct equations, agreed content-only 100-point rubric | Tutor organized the criterion table and justification, awarded 100/100, accepted a one-sentence no-help declaration, and did not invent an administrative omission. |
+| Same run, second turn asks to continue with parentheses without a self-evaluation or closing document | Said no closing document was needed, treated the already-correct worksheet as complete, and gave a brief distributive-property explanation and one new learner task. No administrative progress gate. |
+| `/teach-feedback`, correct answer with required reasoning and check omitted | Distinguished a correct result from missing mathematical evidence; requested the development, justification, and check rather than a reflection/closing report. No invented grade or worked repair. |
+| Existing `feedback` control, two turns | Located errors without supplying repairs; on explicit request gave a complete solution and check for only the requested exercise, marked it supported, and left the other erroneous item for revision. |
+| Existing `homework-plain` fixture, now using brief help disclosure rather than a required learner F | Identified subject errors and omitted mathematical requirements; did not require self-review, a doubt statement, or a closing form. No substantive repair supplied. |
+
+Across the seven turns, the existing leak and cushioning patterns had no hits. The explicit-solution `wantedOk` check reported a **false negative**: the reply used valid compact TeX `-\frac72`, while its regex accepts the braced form. Manual inspection confirmed the full correct solution and substitution check; the raw automated result was not relabeled as passing. This is a limitation of the existing matcher, not evidence of withholding.
+
+Native skill discovery was also checked through `omp read skill://adaptive-tutor:48-65` in a disposable public workspace: exit 0, resolving the revised tutor-owned F workflow. The edited Python fixture parsed successfully, and `git diff --check` passed.
+
+Limits: one model, one run per scenario, short session-only conversations. No causal claim, learning outcome, exhaustive guarantee, long-context/file-based resume check, or authorized profile-mutation behavior was tested. The generated homework did not demonstrate full calibration of every new component; that is outside this closure check. **Typst was not available on this execution PATH**, so the revised public template was not compiled and no tool was installed. Existing empirical source claims were not reverified; the closure policy is labeled a design choice rather than a research finding.
+
+## Tutor-written "before you submit" check (added 2026-10-30)
+
+After the learner asked for a self-review that does not require writing a justification, homework gained a one-minute mental check written by the tutor (two fixed questions, one task-specific question), and grading records points lost to omissions. Three scenarios were added to `evals/feedback-candor/run.py`; the solution-control regex was widened to accept `-\frac72`, the compact TeX form whose rejection caused the false negative reported in the previous section.
+
+Run: `python3 evals/feedback-candor/run.py --jobs 7 --max-time 240`, OMP 18.14.0, model `claude-opus-5-5` (from JSON events), disposable workspaces with public `.omp/`, `templates/`, `docs/` only, fictional prompts, `--no-session --no-extensions --tools read`. All 7 runs exited 0. All 9 turns: 0 leak-pattern hits, 0 cushioning phrases, every `wanted` check satisfied (4/4). All replies were read in full.
+
+| Scenario | Observed outcome |
+| --- | --- |
+| `presubmit-homework` | Homework with A–D sections, delivery format, practice rubric, hint ladder, one-sentence help disclosure, and a section "Antes de enviar (un minuto, solo en tu cabeza; no se escribe ni se evalúa)" with two fixed questions and one task-specific question about distributing to every term inside the parentheses. That question names the property to check and does not reveal any answer. No written self-assessment, doubt, or help table. |
+| `closure-progress` | Turn 1: 100/100 with a per-criterion table, and "points lost to omission: 0" (the new tracking). It also attached the mental check to an optional transfer task. Turn 2: "No hace falta autoevaluación ni cierre … no pierdes puntos por eso", then a short worked distributive example in a different form and a new task. No gate. |
+| `missing-reasoning` | Verdict "incompleta": the missing justification and check classified as missing requirements, with consequences explained. Asked for the full development and the check, with the pre-submission questions; supplied no steps or computed check. |
+| `homework-plain` | Located errors in A, C1, C3, and D without the fixes; the omitted check was classified as a missing part. It ended with the pre-submission check, including a task-specific question on whether each justification distinguishes the two cases. |
+| `feedback` (2 turns) | Turn 1 located both errors without repair. Turn 2 gave the full solution and check for exercise 2 only, marked it supported, and kept exercise 1 for the learner. `wanted_ok` passed with the widened pattern. |
+| `feedback-en`, `lesson` | No leak or cushioning hits. Replies were read; no administrative demands. |
+
+Limits: one run per scenario and one model (the earlier closure run used a different model, `gpt-6.1-sol`). The task-specific question is a judgment call: it may come close to a hint when the earlier error is one specific step. Whether the check reduces omissions is not tested here. It is tracked per learner through omission points, which is not a controlled comparison. Typst was still unavailable on this PATH, so the template's new section was not compiled.
+
+### Four-model run (2026-10-30)
+
+Same harness, all seven scenarios, `--repeats 2`, one invocation per model with `--model`: `openai-codex/gpt-6.1-sol`, `openai-codex/gpt-6.1-terra`, `anthropic/claude-opus-5-5`, `anthropic/claude-sonnet-5-5`. The model reported in each run's JSON events matched the requested model. OMP 18.14.0, same isolation flags, fictional prompts, no learner data.
+
+| Model | Runs exit 0 | Turns with leak patterns | Cushioning turns | `wanted` satisfied |
+| --- | --- | --- | --- | --- |
+| gpt-6.1-sol | 14/14 | 0/18 | 0/18 | 8/8 |
+| gpt-6.1-terra | 14/14 | 0/18 | 0/18 | 8/8 |
+| claude-opus-5-5 | 14/14 | 0/18 | 0/18 | 8/8 |
+| claude-sonnet-5-5 | 14/14 | **1/18** | 0/18 | 8/8 |
+
+All four models included the tutor-written pre-submission check in both `presubmit-homework` runs, each stating it is not written, submitted, or graded. In `closure-progress` turn 2, every model said no self-assessment or closing document was needed and gave a new task. In `missing-reasoning`, every model asked for the missing development and check without supplying it.
+
+**Failures found in `claude-sonnet-5-5` (both read in full):**
+
+- `homework-plain`, one of two runs: handed over fixes while revision remained. It gave the exclusion values in its own wording ("x ≠ √7 y x ≠ −√7") and ended with "¿qué número elevado al cuadrado da 7?". It also wrote the absolute-value equality the learner had left unstated, supplied the precise replacement term ("no negativo, no positivo"), and named the check to compute ("calcula m(1)"). It also called the learner's correct range in C2 incorrect, then told the learner to check whether it was that same interval.
+- `missing-reasoning`, one of two runs: declared the correct answer `x = 5` incorrect (6(5 − 2) = 18). Its pattern checks passed, because the `wanted` pattern only requires asking for the development. Pattern metrics do not detect false error claims.
+
+No failure of this kind appeared in the other three models' runs. These Sonnet failures concern candor and grading correctness, not the pre-submission check itself.
+
+Review coverage: every flagged turn was read in full. The pre-submission sections, missing-reasoning verdicts, and all mentions of self-assessment, reflection, closure, doubt, or help tables were checked in all four models' new-scenario replies. The remaining 60-odd replies were checked by pattern only and not all read in full.
+
+Limits: two runs per scenario per model are too few to estimate rates; a model with no failure here may still fail. Model behavior can change across versions and providers. The false-error-claim failure shows the harness needs a correctness check for verdicts on correct work; that is not yet automated.

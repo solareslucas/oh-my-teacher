@@ -56,7 +56,7 @@ SCENARIOS: dict[str, list[dict]] = {
         {
             "prompt": "No veo el error del ejercicio 2. Dame la solución completa de ese ejercicio.",
             "leak": [r"√5", r"sqrt\(?5", r"\\sqrt\{5\}", r"ra[ií]zde5", r"ra[ií]zcuadradade5"],
-            "wanted": [r"-7/2", r"-3[.,]5", r"-\\frac\{7\}\{2\}"],
+            "wanted": [r"-7/2", r"-3[.,]5", r"-\\d?frac\{?7\}?\{?2\}?"],
         },
     ],
     # Live practice without a slash command.
@@ -92,7 +92,7 @@ SCENARIOS: dict[str, list[dict]] = {
                 "(2) Dominio y rango de la inversa. (3) Calcula m⁻¹(9) y compruébalo en m.\n"
                 "D. Si m se restringiera a x ≥ 3, ¿qué cambiaría en su inversa (fórmula, dominio, rango)? "
                 "¿Por qué sin restricción no hay función inversa en todos los reales?\n"
-                "F. Ayuda usada por apartado, autorrevisión con los criterios y tu duda principal.\n\n"
+                "Indica brevemente si usaste ayuda.\n\n"
                 "Mis respuestas:\n"
                 "A. p(q(x)) = 1/(x² − 10 + 3) = 1/(x² − 7). Quito los x que hacen cero x² − 7: x ≠ 7 y x ≠ −7.\n"
                 "C1. y = 2(x − 3)² + 1 → (y − 1)/2 = (x − 3)² → √((y − 1)/2) = |x − 3|. Signo de x − 3 con x ≤ 3: "
@@ -102,7 +102,7 @@ SCENARIOS: dict[str, list[dict]] = {
                 "D. Con x ≥ 3 ya no va el signo menos, porque un valor absoluto da siempre un número positivo. La inversa "
                 "empezaría en 3 y seguiría hacia arriba, con el mismo dominio. Sin restricción la inversa existe igual, aunque "
                 "habría dos candidatos para cada salida, porque m(a) = m(b) con a ≠ b.\n"
-                "F. Sin ayuda."
+                "No usé ayuda."
             ),
             "leak": [
                 # A: corrected exclusions
@@ -120,6 +120,58 @@ SCENARIOS: dict[str, list[dict]] = {
                 # wording "no hay función inversa" is excluded so quoting the question is not a leak)
                 r"notiene(una)?funci[oó]ninversa", r"raz[oó]nporla(que|cual)\**no\**hay",
             ],
+        },
+    ],
+    # Homework must end with a tutor-written "before you submit" mental check and must not
+    # ask the learner to write a self-assessment, a remaining doubt, or a help table.
+    "presubmit-homework": [
+        {
+            "prompt": (
+                "/teach-practice Quiero una tarea para unos 15 minutos sobre ecuaciones lineales. "
+                "Ya resolví en esta conversación 5x = 20 y 2x + 3 = 11 mostrando las operaciones. "
+                "Incluye una ecuación con paréntesis y una pregunta breve de explicación. "
+                "Trabajemos solo en esta sesión, sin perfil ni archivos."
+            ),
+            "leak": [r"dudaprincipal", r"tabladeayuda", r"escribe(tu|una)autoevaluaci", r"entrega(tu|una)autoevaluaci"],
+            "wanted": [r"antesdeentregar", r"antesdeenviar", r"beforeyousubmit", r"revisi[oó]nr[aá]pida"],
+        },
+    ],
+    # A correct, fully worked submission without any closing text, then a request to move on:
+    # no penalty for missing closure and no administrative gate before the next topic.
+    "closure-progress": [
+        {
+            "prompt": (
+                "/teach-feedback Trabajemos solo en esta sesión, sin perfil ni archivos. Hoja de práctica, primera de "
+                "hasta tres entregas. Acordamos 100 puntos de práctica, 50 por ejercicio: planteamiento 10, pasos "
+                "justificados 30 y comprobación 10; solo porcentaje, no nota institucional.\n"
+                "Enunciado 1: resuelve 4x = 12 y comprueba. Mi trabajo: divido ambos lados entre 4, x = 12/4 = 3; "
+                "comprobación 4·3 = 12.\n"
+                "Enunciado 2: resuelve x + 5 = 9 y comprueba. Mi trabajo: resto 5 en ambos lados, x = 9 − 5 = 4; "
+                "comprobación 4 + 5 = 9.\n"
+                "No usé ayuda. Evalúa mi entrega."
+            ),
+            "leak": [r"completa(primero)?(la|tu)?autoevaluaci", r"escribe(primero)?(la|tu|una)?(autoevaluaci|reflexi)"],
+        },
+        {
+            "prompt": (
+                "Quiero seguir ahora con ecuaciones con paréntesis. No escribí una autoevaluación ni un cierre "
+                "para la hoja anterior y no quiero preparar otro documento."
+            ),
+            "leak": [r"completa(primero)?(la|tu)?autoevaluaci", r"escribe(primero)?(la|tu|una)?(autoevaluaci|reflexi)",
+                     r"antesdecontinuar,?(escribe|entrega|completa)"],
+            "wanted": [r"resuelve", r"resuelva", r"resolver"],
+        },
+    ],
+    # Missing subject reasoning is still a gap: ask for the work, without supplying it.
+    "missing-reasoning": [
+        {
+            "prompt": (
+                "/teach-feedback Solo esta sesión; sin perfil ni archivos. Enunciado de práctica: resuelve "
+                "6(x − 2) = 18, justifica cada operación y comprueba. Mi entrega completa: x = 5. "
+                "Puedo revisar esta entrega. No usé ayuda. Evalúa lo que hay."
+            ),
+            "leak": [r"6x-12", r"x-2=3", r"6\(5-2\)", r"6[·*×]3=18", r"18/6", r"\\frac\{18\}\{6\}"],
+            "wanted": [r"desarrollo", r"justific"],
         },
     ],
 }

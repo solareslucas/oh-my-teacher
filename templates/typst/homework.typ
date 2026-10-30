@@ -4,6 +4,10 @@
 // so this file must not import anything from outside it.
 // Write labels and content in the learner's language. Delete unused sections.
 // Never put solutions here; a solutions document is a separate file.
+// The tutor fills the rubric and feedback; never require learner self-grading.
+// Keep help disclosure conversational and ungraded; no mandatory closing form.
+// "Before you submit" is a tutor-written mental check: 2 fixed + 1 task-specific
+// question aimed at omissions. Nothing is written, submitted, or graded.
 
 #let labels = (
   homework: "Homework",
@@ -16,13 +20,10 @@
   c: "C. Mixed practice",
   d: "D. Explain",
   e: "E. Guided investigation",
-  f: "F. Close",
-  help: "Help used",
-  item: "Item",
-  kind: "Help (none / hint / partial setup / solution)",
+  check: "Before you submit",
+  f: "F. Tutor feedback",
   criterion: "Criterion",
-  self: "Self-assessment",
-  doubt: "Main remaining doubt",
+  evidence: "Evidence assessed by the tutor",
   answer: "Your work",
 )
 
@@ -64,18 +65,18 @@
 #note[
   + [First attempt without notes, AI, or solutions.]
   + [Show your reasoning, not only final answers.]
-  + [If you use a hint, mark it in the "#labels.help" table.]
+  + [If help was used, mention it briefly; the tutor asks a focused question if needed.]
   + [Medium and format, matching how you will be assessed.]
 ]
 
 == #labels.rubric
 #table(
-  columns: (1fr, auto),
+  columns: (1fr, 1fr),
   stroke: luma(200),
-  [*#labels.criterion*], [*#labels.self*],
-  [[criterion 1, e.g. correct setup]], [ ],
-  [[criterion 2, e.g. justified steps]], [ ],
-  [[criterion 3, e.g. result checked]], [ ],
+  [*#labels.criterion*], [*#labels.evidence*],
+  [[criterion 1, e.g. correct setup]], [[work to inspect; points only under an agreed grading scheme]],
+  [[criterion 2, e.g. justified steps]], [[work to inspect]],
+  [[criterion 3, e.g. result checked]], [[work to inspect]],
 )
 
 == #labels.a
@@ -104,13 +105,17 @@
   *[Deliverable]*
 ]
 
+== #labels.check
+#note[
+  [Quick check, about one minute. Nothing to write or submit; not graded.]
+  + [Did I answer every part of every item?]
+  + [Did I do every check the prompt asks for?]
+  + [Task-specific question written by the tutor from the rubric and earlier omissions; never reveals an answer.]
+]
+
 == #labels.f
-#table(
-  columns: (auto, 1fr),
-  stroke: luma(200),
-  [*#labels.item*], [*#labels.kind*],
-  [ ], [ ],
-  [ ], [ ],
-)
-*#labels.doubt:*
-#answer-space(height: 2cm)
+#note[
+  [Completed by the tutor after reviewing the work: verdict, evidence, errors, and next step.
+  No learner self-assessment, mandatory doubt, closing report, or points for administrative formatting.
+  Missing closure does not require resubmission or block the next topic.]
+]

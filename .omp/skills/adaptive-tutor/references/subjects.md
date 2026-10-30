@@ -41,8 +41,8 @@ These profiles are starting points, not rules that override the learner's actual
 
 ## Writing
 
-- **Submit:** successive drafts with the plan and a note of what changed.
-- **Check:** feedback on one or two priorities per draft, then a revision; self-assessment with a rubric before submitting.
+- **Submit:** successive drafts with the plan; a note of what changed is optional, not a completion gate.
+- **Check:** tutor feedback against the rubric on one or two priorities per draft, then a revision. Learner self-assessment is optional unless it is itself an agreed learning objective.
 - **Needs:** text or Typst; keep each version.
 - **Cannot observe:** authorship beyond what is declared; do not produce the graded text for the learner.
 

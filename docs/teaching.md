@@ -22,7 +22,7 @@ For optional persistence, use `/teach-profile` to explicitly consent and select 
 | --- | --- |
 | `/teach-start` | Conversational intake and one useful starting prompt. |
 | `/teach-lesson` | One measurable objective, short explanation, worked example, and learner turn. |
-| `/teach-practice` | One live task, or homework built from sections A–F chosen by evidence, with a delivery format, rubric, ID, and no answers. |
+| `/teach-practice` | One live task, or homework built from subject sections A–E chosen by evidence, with a delivery format, rubric, ID, and no answers; F is tutor feedback only. |
 | `/teach-feedback` | Inspect actual work, identify a consequential gap, and invite one revision. |
 | `/teach-review` | Ask one manual retrieval cue before reteaching; propose the next opportunity. |
 | `/teach-report` | Summarize evidence, limits, and next steps; no invented grades. |
@@ -48,7 +48,9 @@ Support is calibrated **per component, not per person**. An experienced develope
 
 ## Homework design
 
-Homework is built from sections chosen by the learner's evidence, not from fixed counts: **A** retrieval without notes on earlier objectives, **B** a worked example then a parallel problem (faded as independence appears), **C** interleaved practice, **D** explanation, **E** guided investigation, **F** self-assessment, declared help, and remaining doubt. Every assignment states its delivery format: first attempt without notes or AI, reasoning submitted, and a format matching how the learner will be assessed. Answers never appear in the assignment; solutions are separate. Subject-specific evidence (code that runs, proofs, drafts, recordings, sources) follows `.omp/skills/adaptive-tutor/references/subjects.md`. Sources and limits: [homework evidence](homework-evidence.md).
+Homework is built from subject sections chosen by the learner's evidence, not from fixed counts: **A** retrieval without notes on earlier objectives, **B** a worked example then a parallel problem (faded as independence appears), **C** interleaved practice, **D** explanation, **E** guided investigation. **F**, if used, is tutor feedback only: the tutor owns grading, feedback structure, and evaluation justification. Every assignment states its delivery format: first attempt without notes or AI, reasoning submitted, and a format matching how the learner will be assessed. Help disclosure is brief natural language; ask a focused question if needed, not for a table or report. Learner self-grading, a remaining doubt, a closing report, and an administrative change note are not completion or progress gates. Reflection is optional unless it is itself an agreed learning objective; subject reasoning, checks, drafts, and revision evidence remain necessary. Answers never appear in the assignment; solutions are separate. Subject-specific evidence (code that runs, proofs, drafts, recordings, sources) follows `.omp/skills/adaptive-tutor/references/subjects.md`. Sources and limits: [homework evidence](homework-evidence.md).
+
+Each assignment ends with a **before you submit** check written by the tutor: two fixed questions (every part answered? every requested check done?) and one question specific to the task, built from its rubric and the learner's earlier omissions, never revealing an answer. It is a one-minute mental pass: nothing is written, submitted, or graded. Its purpose is to practise catching omissions before single-attempt exams, where no tutor points them out. When grading, the tutor records how many points were lost to omissions in each submission; if that number does not fall over several assignments, the check is revised or dropped. The rationale and its limits are in [homework evidence](homework-evidence.md) (C12).
 
 A learner who wants homework every session records that in the study plan of their profile; the tutor then assigns it without asking again, until the learner changes the plan.
 

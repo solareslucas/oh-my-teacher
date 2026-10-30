@@ -43,7 +43,7 @@ Append a block for each meaningful actual attempt; choose stable local IDs such 
 - Visible response/work: [brief relevant excerpt or authorized artifact reference]
 - Conditions: [independent / cue / partial scaffold / worked model / answer supplied; actual help used]
 - Access support: [translation, assistive format, extra time, etc. if volunteered and relevant; whether it supplied the assessed answer; no diagnosis inference]
-- Rubric/criteria results: [criterion → observed result; not observed where unavailable; points only with explicit rubric]
+- Rubric/criteria results: [criterion → observed result; not observed where unavailable; points only with explicit rubric; mark lost points that were omissions (missing part, check, or formula)]
 - Interpretation and uncertainty: [what follows, what does not; competing explanations if relevant]
 - Feedback and revision: [actual feedback/revision, or not yet attempted]
 - Next action / linked review ID: [specific step]
