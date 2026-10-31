@@ -11,7 +11,7 @@ const LAST_TASK_MARGIN_MIN = 10; // less than this left after a task => it is th
 const WARN_MINUTES = [5, 15]; // ascending: the tightest crossed threshold is reported
 const CALIBRATION_MIN_SAMPLES = 3;
 const CALIBRATION_WINDOW = 20;
-const MUTATING = new Set(["plan_week", "plan_item", "plan_status", "plan", "begin", "pause", "resume", "task_start", "task_next", "task_rescope", "task_end", "extend", "end", "cancel"]);
+const MUTATING = new Set(["plan_week", "plan_item", "plan_status", "plan", "begin", "pause", "resume", "task_start", "task_next", "task_rescope", "task_end", "extend", "end", "cancel", "clear_note"]);
 const CLOCK_POLICY = "A <study-clock> message from the host accompanies each user turn with the deterministic local time and any active or paused study block. Use it (or the study_clock tool) instead of guessing time; schedules are planning data, not learning evidence.";
 
 const pad = n => String(Math.trunc(Math.abs(n))).padStart(2, "0");
@@ -434,6 +434,15 @@ export default function (pi) {
           .map(b => blockStatus(b, now));
         return { message: blocks.length ? blocks.map(summarize).join("\n") : `No blocks on ${day}.`, blocks };
       }
+      case "clear_note": {
+        if (typeof params.blockId !== "string" || !params.blockId.trim()) throw new Error("clear_note requires an explicit blockId.");
+        const target = state.blocks.find(b => b.id === params.blockId);
+        if (!target) throw new Error("clear_note requires the blockId of an existing historical block.");
+        if (!["ended", "cancelled"].includes(target.status)) throw new Error("clear_note requires an ended or cancelled historical block.");
+        const changed = Object.hasOwn(target, "note");
+        delete target.note;
+        return { id: target.id, changed };
+      }
       case "plan": {
         if (!params.subject) throw new Error("plan requires subject (code or name as the learner's plan states it).");
         if (!(params.durationMinutes > 0)) throw new Error("plan requires durationMinutes > 0.");
@@ -694,6 +703,7 @@ export default function (pi) {
       "task_start (title, estimateMinutes: honest minutes for this learner) | task_next (ends the running task with outcome, starts title/estimateMinutes) | task_rescope (estimateMinutes: total minutes of the reduced task from its start, title?, note?) |",
       "task_end (outcome: completed|partial|abandoned, note?) |",
       "pause | resume (freeze/continue the same block and task; breaks do not count as study time and deadlines shift on resume) | extend (minutes, may be negative) | end (note?; also allowed while paused) | cancel (blockId). While paused, resume before task_start/task_next/task_rescope/task_end or extend; a second block cannot start.",
+      "clear_note (mandatory blockId) removes only that ended or cancelled historical block's note; no active-block fallback, no task-note changes. Returns only id and changed; repeating it is a no-op.",
       "Weekly plans: plan_week (name, slots [{day mon..sun, start HH:MM, durationMinutes, subject?}], items [{subject, topic?, title?, hours, days?}] in study order, startDate?, until?; planId to edit) |",
       "plan_view (planId?, weeks?) | plan_item (planId, itemId|topic, hours? | done true/false) | plan_status (planId, status active|paused|cancelled|completed) | begin (planId, start? HH:MM) starts today's next planned session now (early or late is fine) and credits its topics; use it instead of plan for planned days.",
       "Slots repeat weekly; a slot's subject is a preference (strict=true makes it exclusive); otherwise it takes the next eligible topic in queue order. Several topics share a slot when they fit, so topics are grouped by day automatically. Items with after=[...] wait for their prerequisites.",
@@ -703,14 +713,14 @@ export default function (pi) {
       "Pass alias/persist once; later calls reuse that selection. Schedule data is planning data, never learning evidence.",
     ].join(" "),
     parameters: z.object({
-      action: z.enum(["now", "status", "list", "plan", "begin", "pause", "resume", "task_start", "task_next", "task_rescope", "task_end", "extend", "end", "cancel", "plan_week", "plan_view", "plan_item", "plan_status"]),
+      action: z.enum(["now", "status", "list", "plan", "begin", "pause", "resume", "task_start", "task_next", "task_rescope", "task_end", "extend", "end", "cancel", "clear_note", "plan_week", "plan_view", "plan_item", "plan_status"]),
       alias: z.string().optional().describe("Explicitly selected learner alias"),
       persist: z.boolean().optional().describe("true = store in the alias's schedule.json (consent required)"),
       subject: z.string().optional(),
       topic: z.string().optional(),
       durationMinutes: z.number().optional(),
       start: z.string().optional().describe('"now", "HH:MM" today (local), or ISO 8601 with offset'),
-      blockId: z.string().optional(),
+      blockId: z.string().optional().describe("Required explicit historical block ID for clear_note; no active-block fallback"),
       title: z.string().optional(),
       estimateMinutes: z.number().optional(),
       outcome: z.enum(["completed", "partial", "abandoned"]).optional(),
@@ -752,6 +762,10 @@ export default function (pi) {
       const result = apply(params.action, params, state, now);
       const saved = result.changed ? save(cwd, r, state) : null;
       ref = r;
+      // Note cleanup must not echo schedule content, other notes, or active tasks.
+      if (params.action === "clear_note") {
+        return { content: [{ type: "text", text: JSON.stringify(result) }], details: result };
+      }
       const block = occupiedBlock(state);
       const details = {
         clock: clockInfo(now),

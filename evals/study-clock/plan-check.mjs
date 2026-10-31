@@ -428,4 +428,80 @@ await checkAsync("failed compound task_next never partially ends/calibrates a ta
   }
 }));
 
+await checkAsync("clear_note is native, consent-gated, exact, persistent, and idempotent", () => withClock(async h => {
+  assert.ok(h.tool.parameters.action.values.includes("clear_note"));
+  assert.match(h.tool.description, /clear_note.*mandatory blockId/);
+  assert.equal(h.tool.approval({ action: "clear_note" }), "write");
+  assert.equal(h.tool.approval({ action: "clear_note", persist: false }), "read");
+  const fixture = {
+    version: 1,
+    blocks: [{
+      id: "B001", status: "ended", subject: "FICTIONAL", topic: "Synthetic topic",
+      note: "Fictional block note to remove", durationMin: 60, actualMin: 25,
+      plannedStart: m.isoLocal(NOW), startedAt: m.isoLocal(NOW),
+      endedAt: m.isoLocal(NOW + 30 * MINUTE), endsAt: m.isoLocal(NOW + 65 * MINUTE),
+      pausedMs: 5 * MINUTE, planId: "P1",
+      allocation: [{ itemId: "I1", label: "Synthetic topic", minutes: 60 }],
+      adjustments: [{ at: m.isoLocal(NOW), minutes: 5, note: "Keep adjustment note" }],
+      tasks: [{
+        id: "T1", title: "Fictional task", status: "completed", note: "Keep task note",
+        startedAt: m.isoLocal(NOW), endedAt: m.isoLocal(NOW + 25 * MINUTE),
+        estimateMin: 20, actualMin: 25, rescoped: [{ note: "Keep rescope note" }],
+      }],
+    }, {
+      id: "B002", status: "cancelled", note: "Keep other block note", tasks: [],
+    }],
+    calibration: [{ subject: "FICTIONAL", estimateMin: 20, actualMin: 25 }],
+    plans: [{ id: "P1", status: "active", begun: ["2026-10-28@08:00"],
+      items: [{ id: "I1", subject: "FICTIONAL", hours: 1, doneMinutes: 25 }] }],
+    extra: { nested: ["Keep unknown schedule fields"] },
+  };
+  writeFileSync(h.file, JSON.stringify(fixture));
+  const expected = structuredClone(fixture);
+  delete expected.blocks[0].note;
+  const result = await h.tool.execute("clear", {
+    action: "clear_note", blockId: "B001", ...h.select,
+  }, null, null, h.ctx);
+  assert.deepEqual(result.details, { id: "B001", changed: true });
+  assert.deepEqual(result.content, [{ type: "text", text: '{"id":"B001","changed":true}' }]);
+  assert.deepEqual(h.persisted(), expected);
+  const disk = readFileSync(h.file, "utf8");
+  const fresh = h.reload();
+  assert.deepEqual(await fresh.call({ action: "clear_note", blockId: "B001", ...h.select }),
+    { id: "B001", changed: false });
+  assert.equal(readFileSync(h.file, "utf8"), disk, "idempotent removal must not rewrite");
+  assert.deepEqual(await fresh.call({ action: "clear_note", blockId: "B002" }),
+    { id: "B002", changed: true });
+  delete expected.blocks[1].note;
+  assert.deepEqual(h.persisted(), expected);
+}));
+
+await checkAsync("clear_note rejects missing, invalid, unknown, and nonhistorical IDs without changes", () => withClock(async h => {
+  await h.call({ ...basic, ...h.select });
+  const original = h.persisted();
+  original.blocks[0].note = "Keep active block note";
+  original.blocks.push(
+    { id: "B002", status: "paused", note: "Keep paused note", tasks: [] },
+    { id: "B003", status: "planned", note: "Keep planned note", tasks: [] },
+  );
+  writeFileSync(h.file, JSON.stringify(original));
+  const disk = readFileSync(h.file, "utf8");
+  for (const blockId of [undefined, null, "", " ", 1, "B999", "B001", "B002", "B003"]) {
+    await assert.rejects(h.call({ action: "clear_note", blockId }), /clear_note requires/);
+    assert.equal(readFileSync(h.file, "utf8"), disk);
+  }
+  assert.deepEqual(h.persisted(), original);
+}));
+
+await checkAsync("clear_note reuses session-only storage without active-block fallback", () => withClock(async h => {
+  await h.call({ ...basic, persist: false });
+  await assert.rejects(h.call({ action: "clear_note" }), /explicit blockId/);
+  h.set(10);
+  await h.call({ action: "end", note: "Fictional session-only note" });
+  assert.deepEqual(await h.call({ action: "clear_note", blockId: "B001" }),
+    { id: "B001", changed: true });
+  assert.deepEqual(await h.call({ action: "clear_note", blockId: "B001" }),
+    { id: "B001", changed: false });
+}));
+
 console.log(`\n${passed} checks passed (${extPath})`);
